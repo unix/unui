@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
-DEFAULT_MCP_URL = "http://api.unui.cc/v1/mcp"
+DEFAULT_MCP_URL = "https://api.unui.cc/v1/mcp"
 DEFAULT_SERVER_NAME = "unui-mcp"
 DEFAULT_TIMEOUT_SECONDS = 5
 EXPECTED_TOOLS = ["unui_auth_status", "unui_evidence_pack"]

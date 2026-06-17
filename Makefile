@@ -13,7 +13,7 @@ CODEX_WORKSPACE_STATE_CLEANER ?= scripts/clear_codex_workspace_state.py
 MCP_CONFIG_FILES ?= $(PLUGIN_PATH)/skills/unui/agents/openai.yaml $(PLUGIN_PATH)/skills/unui-mcp-auth/agents/openai.yaml $(PLUGIN_PATH)/skills/unui-mcp-diagnostics/agents/openai.yaml $(PLUGIN_PATH)/.mcp.json $(PLUGIN_PATH)/scripts/mcp_diagnose_auth.py $(PLUGIN_PATH)/scripts/mcp_diagnose_health.py
 MCP_URL_PATTERN ?= https?://(?:localhost:3001|api\.unui\.cc)/v1/mcp
 MCP_DEV_URL ?= http://localhost:3001/v1/mcp
-MCP_PROD_URL ?= http://api.unui.cc/v1/mcp
+MCP_PROD_URL ?= https://api.unui.cc/v1/mcp
 PLUGIN_CREATOR_DIR ?= $${HOME}/.codex/skills/.system/plugin-creator
 PLUGIN_VALIDATOR ?= $(PLUGIN_CREATOR_DIR)/scripts/validate_plugin.py
 PLUGIN_CACHEBUSTER ?= $(PLUGIN_CREATOR_DIR)/scripts/update_plugin_cachebuster.py
@@ -44,7 +44,7 @@ help:
 	@printf '%s\n' '  MARKETPLACE_ROOT=.'
 	@printf '%s\n' '  MARKETPLACE=.agents/plugins/marketplace.json'
 	@printf '%s\n' '  MCP_DEV_URL=http://localhost:3001/v1/mcp'
-	@printf '%s\n' '  MCP_PROD_URL=http://api.unui.cc/v1/mcp'
+	@printf '%s\n' '  MCP_PROD_URL=https://api.unui.cc/v1/mcp'
 	@printf '%s\n' '  MCP_CONFIG_FILES=plugins/unui-codex-plugin/skills/unui/agents/openai.yaml plugins/unui-codex-plugin/skills/unui-mcp-auth/agents/openai.yaml plugins/unui-codex-plugin/skills/unui-mcp-diagnostics/agents/openai.yaml plugins/unui-codex-plugin/.mcp.json plugins/unui-codex-plugin/scripts/mcp_diagnose_auth.py plugins/unui-codex-plugin/scripts/mcp_diagnose_health.py'
 	@printf '%s\n' '  MCP_URL_PATTERN=https?://(?:localhost:3001|api\.unui\.cc)/v1/mcp'
 	@printf '%s\n' '  PLUGIN_VALIDATOR=$$HOME/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py'
