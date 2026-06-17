@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "unui-mcp": {
+      "type": "http",
+      "url": "http://localhost:3001/v1/mcp",
+      "oauth_resource": "http://localhost:3001/v1/mcp",
+      "scopes": ["style:read"],
+      "enabled_tools": ["unui_auth_status", "unui_evidence_pack"],
+      "note": "UNUI MCP server. Uses OAuth on first connection."
+    }
+  }
+}

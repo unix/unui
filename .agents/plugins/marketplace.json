@@ -1,0 +1,20 @@
+{
+  "name": "unui-codex-plugin",
+  "interface": {
+    "displayName": "UNUI Space"
+  },
+  "plugins": [
+    {
+      "name": "unui-codex-plugin",
+      "source": {
+        "source": "local",
+        "path": "./plugins/unui-codex-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "name": "unui-codex-plugin",
+  "version": "0.1.0+codex.20260614110311",
+  "description": "Codex workflows for working on unUI.",
+  "author": {
+    "name": "witt"
+  },
+  "repository": "https://github.com/unix/unui",
+  "license": "UNLICENSE",
+  "keywords": [
+    "codex",
+    "unui",
+    "workflow"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "UNUI Codex Plugin",
+    "shortDescription": "Project-aware UNUI workflows and UI evidence.",
+    "longDescription": "Reusable Codex skills for developing, reviewing, and maintaining the UNUI codebase, including UI style evidence from the UNUI API.",
+    "developerName": "witt",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "brandColor": "#000000",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/logo.png",
+    "defaultPrompt": [
+      "Use $unui to design a custom-domain settings page with DNS, verification, and SSL states.",
+      "Use $unui to create a dense dashboard UI from related style evidence.",
+      "Use $unui to build a login and authorization flow that fits this product."
+    ]
+  }
+}
