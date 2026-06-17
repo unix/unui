@@ -1,0 +1,13 @@
+interface:
+  display_name: "unUI"
+  short_description: "unUI workflows and style signals"
+  default_prompt: "Use $unui to implement unUI changes or design a UI block from style signals."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "unui-mcp"
+      description: "unUI style evidence MCP for structured Tailwind style signals and related UI references."
+      transport: "streamable_http"
+      url: "http://localhost:3001/v1/mcp"
+policy:
+  allow_implicit_invocation: true

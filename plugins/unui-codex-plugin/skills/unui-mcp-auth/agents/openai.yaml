@@ -1,0 +1,11 @@
+interface:
+  display_name: "unUI MCP Auth"
+  short_description: "Check or reset unUI MCP login state"
+  default_prompt: "Use $unui-mcp-auth to check my unUI MCP login status."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "unui-mcp"
+      description: "unUI MCP auth status and style evidence tools."
+      transport: "streamable_http"
+      url: "http://localhost:3001/v1/mcp"

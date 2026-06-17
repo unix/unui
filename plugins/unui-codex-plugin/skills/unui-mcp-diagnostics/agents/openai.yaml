@@ -1,0 +1,11 @@
+interface:
+  display_name: "unUI MCP Diagnostics"
+  short_description: "Check unUI MCP setup and service health"
+  default_prompt: "Use $unui-mcp-diagnostics to check whether unUI MCP is installed and reachable."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "unui-mcp"
+      description: "unUI MCP auth status and style evidence tools."
+      transport: "streamable_http"
+      url: "http://localhost:3001/v1/mcp"
