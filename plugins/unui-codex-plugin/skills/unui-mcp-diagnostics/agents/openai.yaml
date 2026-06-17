@@ -8,4 +8,4 @@ dependencies:
       value: "unui-mcp"
       description: "unUI MCP auth status and style evidence tools."
       transport: "streamable_http"
-      url: "http://localhost:3001/v1/mcp"
+      url: "http://api.unui.cc/v1/mcp"

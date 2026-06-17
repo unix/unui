@@ -11,7 +11,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
-DEFAULT_MCP_URL = "http://localhost:3001/v1/mcp"
+DEFAULT_MCP_URL = "http://api.unui.cc/v1/mcp"
 DEFAULT_TIMEOUT_SECONDS = 5
 AUTH_STATUS_TOOL = "unui_auth_status"
 LOGIN_COMMAND = "codex mcp login unui-mcp --scopes style:read"

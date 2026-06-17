@@ -8,6 +8,6 @@ dependencies:
       value: "unui-mcp"
       description: "unUI style evidence MCP for structured Tailwind style signals and related UI references."
       transport: "streamable_http"
-      url: "http://localhost:3001/v1/mcp"
+      url: "http://api.unui.cc/v1/mcp"
 policy:
   allow_implicit_invocation: true
