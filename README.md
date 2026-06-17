@@ -11,7 +11,7 @@ This service is intended for [unui.cc](https://unui.cc) workflows. Access is lim
 After this repository is published to a Git host:
 
 ```bash
-codex plugin marketplace add unix@unui
+codex plugin marketplace add unix/unui
 ```
 
 After the command finishes, restart Codex to see the new plugin under Plugins in the left sidebar.
