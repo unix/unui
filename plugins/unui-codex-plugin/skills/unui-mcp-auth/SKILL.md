@@ -38,10 +38,20 @@ fields, cache paths, internal IDs, or token details.
 
 Map status to guidance this way:
 
+- If `problems` contains `expired_access_token_session_active` or
+  `auth.accessTokenStatus` is `expired_access_token_session_active`, output only
+  two pieces: a short user-facing note from `diagnosticMessage`, then the
+  relogin command from `recommendedAction`. If either field is missing, use this
+  note and command:
+  "We detected that an active token still exists. The current Codex thread may
+  be using an expired UNUI access token snapshot. This does not necessarily mean your
+  account is signed out. Open a new Codex conversation and run unui-mcp-auth
+  again to confirm your login status."
+  `codex mcp logout unui-mcp && codex mcp login unui-mcp --scopes style:read`
 - `auth.loginVerified` is `false`: say UNUI MCP is not logged in and recommend
   asking Codex to start UNUI login. Also provide
   `codex mcp login unui-mcp --scopes style:read` as a manual CLI alternative.
-  Do not label the CLI alternative as the fix command.
+  Present the CLI command as a manual alternative.
 - `auth.blocked` is `true` or `problems` contains `account_blocked`: say the
   current account is blocked and the user should switch accounts or contact
   support.
@@ -66,8 +76,8 @@ content in English.
 
 ## Fallback
 
-If `unui_auth_status` is not visible or cannot be called at all, run the
-auth diagnostic fallback:
+If `unui_auth_status` is not visible or cannot be called at all, run the auth
+diagnostic fallback:
 
 ```bash
 python3 <plugin-root>/scripts/mcp_diagnose_auth.py --format json

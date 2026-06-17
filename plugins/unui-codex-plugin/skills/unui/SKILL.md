@@ -28,12 +28,12 @@ Before designing a page or authoring a new block, fetch a style evidence pack fr
 `unui_evidence_pack` is an MCP tool exposed through the UNUI API MCP endpoint. It is not a standalone REST route, so do not look for a matching controller action or HTTP path with that exact name.
 
 If `unui_evidence_pack` is not visible as a callable tool or a tool call fails,
-do not assume the tool is missing and do not immediately fall back to local
-files. First call the public `unui_auth_status` MCP tool to diagnose login,
-membership, block, and throttle state.
+do not immediately fall back to local files. First call the public
+`unui_auth_status` MCP tool to diagnose login, membership, block, and throttle
+state.
 
-If `unui_auth_status` is not visible or cannot be called at all, use the
-bundled auth diagnostic fallback:
+If `unui_auth_status` is not visible or cannot be called at all, use the bundled
+auth diagnostic fallback:
 
 ```bash
 python3 <plugin-root>/scripts/mcp_diagnose_auth.py --format json
@@ -49,17 +49,13 @@ Use the diagnostic and auth results this way:
 
 1. If `unui_auth_status` reports `simulatedMCP: true`, continue to
    `unui_evidence_pack`.
-2. If it reports not logged in, blocked account, inactive membership, or active
-   usage throttle, stop the requested UNUI workflow and give the repair
-   guidance from the auth status result. Prefer Codex-assisted prompts when the
-   result includes one, and present CLI commands only as manual alternatives.
-3. If the auth diagnostic reports not logged in, blocked account, inactive
-   membership, or active usage throttle, stop the requested UNUI workflow and
-   give the repair guidance from the diagnostic result. Prefer
-   `suggestedPrompt` over `cliCommand` when both are present.
-4. If the auth diagnostic cannot reach `unui_auth_status`, use the health
-   diagnostic only to explain setup or connectivity state, then stop. Do not
-   continue with local fallback unless the user explicitly asks for a fallback.
+2. If `unui_auth_status` or the auth diagnostic reports any login, membership,
+   block, throttle, or token-state problem, stop the requested UNUI workflow and
+   explain the auth state using the `unui-mcp-auth` skill guidance as the
+   source of truth.
+3. If the auth diagnostic cannot reach `unui_auth_status`, use the health
+   diagnostic only to explain setup or connectivity state, then stop. For
+   detailed auth repair guidance, use `unui-mcp-auth`.
 
 Use the pack this way:
 

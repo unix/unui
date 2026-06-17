@@ -18,6 +18,13 @@ LOGIN_COMMAND = "codex mcp login unui-mcp --scopes style:read"
 RELOGIN_COMMAND = (
     "codex mcp logout unui-mcp && codex mcp login unui-mcp --scopes style:read"
 )
+STALE_CODEX_THREAD_MESSAGE = (
+    "We detected that an active token still exists. The current Codex thread "
+    "may be using an expired UNUI access token snapshot. This can happen after "
+    "reusing an old Codex thread or switching machines. This does not "
+    "necessarily mean your account is signed out. Open a new Codex conversation "
+    "and run unui-mcp-auth again to confirm your login status."
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -198,9 +205,15 @@ def summarize(
     problems = auth_status.get("problems")
     problem_list = problems if isinstance(problems, list) else []
     recommended_action = auth_status.get("recommendedAction")
+    diagnostic_message = auth_status.get("diagnosticMessage")
     next_action = (
         recommended_action
         if isinstance(recommended_action, str) and recommended_action
+        else None
+    )
+    status_message = (
+        diagnostic_message
+        if isinstance(diagnostic_message, str) and diagnostic_message
         else None
     )
 
@@ -230,6 +243,14 @@ def summarize(
             auth_status,
             cli_command=RELOGIN_COMMAND,
             suggested_prompt="login unui",
+        )
+    if "expired_access_token_session_active" in problem_list:
+        return summary(
+            "expired_access_token_session_active",
+            status_message or STALE_CODEX_THREAD_MESSAGE,
+            True,
+            auth_status,
+            cli_command=next_action or RELOGIN_COMMAND,
         )
     if "not_logged_in" in problem_list:
         return summary(
