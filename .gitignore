@@ -1,0 +1,12 @@
+# Build outputs
+dist/
+/unui
+/unui.exe
+
+# Test coverage
+coverage.out
+
+# Editor and system files
+.DS_Store
+.idea/
+.vscode/
