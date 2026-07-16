@@ -1,4 +1,4 @@
-version: '3'
+version: "3"
 
 tasks:
   default:
@@ -41,8 +41,40 @@ tasks:
 
   release-check:
     desc: Validate the GoReleaser configuration without publishing
-    cmd: goreleaser check
+    cmds:
+      - goreleaser check
+      - task: npm-test
 
   release-snapshot:
     desc: Build release artifacts locally without publishing
     cmd: goreleaser release --snapshot --clean
+
+  npm-test:
+    desc: Test the npm release tooling
+    cmd: node --test npm/scripts/lib.test.mjs
+
+  npm-package:
+    desc: Build npm packages from the archives in dist
+    requires:
+      vars:
+        - VERSION
+    cmd: node npm/scripts/build-packages.mjs --version {{.VERSION}}
+
+  npm-package-check:
+    desc: Build and verify npm packages without publishing
+    requires:
+      vars:
+        - VERSION
+    cmds:
+      - task: npm-package
+        vars:
+          VERSION: "{{.VERSION}}"
+      - node npm/scripts/verify-packages.mjs
+
+  npm-trust-verify:
+    desc: Verify Trusted Publishing for every npm package
+    cmd: node npm/scripts/configure-trusted-publishing.mjs --verify
+
+  npm-token-restrictions:
+    desc: Preview commands that disallow traditional npm publishing tokens
+    cmd: node npm/scripts/restrict-token-publishing.mjs

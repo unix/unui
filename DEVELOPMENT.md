@@ -9,6 +9,8 @@ from the repository root.
 - [Task](https://taskfile.dev/)
 - [GoReleaser](https://goreleaser.com/) 2.17.0 or newer for release checks
   and snapshot builds
+- Node.js 22.14.0 or newer for npm release tooling
+- npm 12.0.1 or newer for configuring Trusted Publishing
 
 ## Testing
 
@@ -117,5 +119,9 @@ git push origin v0.1.0
 ```
 
 Pushing the tag causes GitHub Actions to run GoReleaser, create the GitHub
-Release, and upload the archives and checksum file. Do not reuse, move, or
-overwrite a published version tag.
+Release, upload the archives and checksum file, then publish the matching npm
+packages through Trusted Publishing. Do not reuse, move, or overwrite a
+published version tag.
+
+See [NPM_PUBLISHING.md](./NPM_PUBLISHING.md) for the one-time npm bootstrap,
+Trusted Publishing configuration, package verification, and recovery steps.
