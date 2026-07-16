@@ -113,5 +113,8 @@ export const optionValue = (args, name, fallback) => {
 
 export const hasOption = (args, name) => args.includes(name);
 
+export const isSetupNodeAuthPlaceholder = (value) =>
+  /^X+(?:-X+)+$/.test(String(value ?? "").trim());
+
 export const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));

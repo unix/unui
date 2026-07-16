@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   defaultDistTag,
+  isSetupNodeAuthPlaceholder,
   normalizeVersion,
   packageNames,
   platformKey,
@@ -51,6 +52,12 @@ test("lists platform packages before the root package", () => {
 
   assert.equal(names.length, 7);
   assert.equal(names.at(-1), "@unix/unui");
+});
+
+test("recognizes the setup-node auth token placeholder", () => {
+  assert.equal(isSetupNodeAuthPlaceholder("XXXXX-XXXXX-XXXXX-XXXXX"), true);
+  assert.equal(isSetupNodeAuthPlaceholder("npm_real-token"), false);
+  assert.equal(isSetupNodeAuthPlaceholder(""), false);
 });
 
 test("detects global npm package managers from launcher paths", () => {

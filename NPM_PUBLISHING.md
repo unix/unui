@@ -126,11 +126,11 @@ Create a prerelease only after the npm release files and workflow are committed
 to the release branch:
 
 ```sh
-git tag -a v0.2.0-rc.1 -m "Release v0.2.0-rc.1"
-git push origin v0.2.0-rc.1
+git tag -a v0.2.0-rc.2 -m "Release v0.2.0-rc.2"
+git push origin v0.2.0-rc.2
 ```
 
-Confirm that all seven packages exist at `0.2.0-rc.1`, use the `next` dist-tag,
+Confirm that all seven packages exist at `0.2.0-rc.2`, use the `next` dist-tag,
 and show npm provenance linked to `unix/unui-cli`.
 
 After the OIDC release succeeds, preview the commands that set every package's

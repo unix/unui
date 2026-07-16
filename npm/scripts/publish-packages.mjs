@@ -2,7 +2,13 @@ import { spawnSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { hasOption, optionValue, readJson, sleep } from "./lib.mjs";
+import {
+  hasOption,
+  isSetupNodeAuthPlaceholder,
+  optionValue,
+  readJson,
+  sleep,
+} from "./lib.mjs";
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "../..");
@@ -36,7 +42,13 @@ if (!config.confirmations.license) {
 }
 
 if (trustedPublishing) {
-  if (process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN) {
+  const npmToken = process.env.NPM_TOKEN?.trim();
+  const nodeAuthToken = process.env.NODE_AUTH_TOKEN?.trim();
+
+  if (
+    npmToken ||
+    (nodeAuthToken && !isSetupNodeAuthPlaceholder(nodeAuthToken))
+  ) {
     throw new Error(
       "Trusted Publishing must not run with NPM_TOKEN or NODE_AUTH_TOKEN",
     );
