@@ -16,6 +16,7 @@ import (
 	"github.com/unix/unui-cli/internal/api"
 	"github.com/unix/unui-cli/internal/buildinfo"
 	cliconfig "github.com/unix/unui-cli/internal/config"
+	"github.com/unix/unui-cli/internal/installation"
 	"github.com/unix/unui-cli/internal/message"
 	"github.com/unix/unui-cli/internal/output"
 	"github.com/unix/unui-cli/internal/proof"
@@ -33,10 +34,12 @@ const (
 type app struct {
 	buildInfo      buildinfo.Info
 	configStore    cliconfig.Store
+	detectInstall  func() (installation.Info, error)
 	json           bool
 	noColor        bool
 	registry       string
 	registrySource string
+	removeInstall  func(installation.Info) error
 	stderr         io.Writer
 	stdout         io.Writer
 	verbose        bool
@@ -55,10 +58,12 @@ func execute(
 	application := &app{
 		buildInfo:      buildInfo,
 		configStore:    cliconfig.DefaultStore(),
+		detectInstall:  installation.Detect,
 		json:           containsEnabledFlag(args, "json"),
 		noColor:        noColorByDefault() || containsEnabledFlag(args, "no-color"),
 		registry:       cliconfig.DefaultRegistry,
 		registrySource: "default",
+		removeInstall:  installation.Remove,
 		stderr:         stderr,
 		stdout:         stdout,
 		verbose:        containsEnabledFlag(args, "verbose"),
@@ -172,6 +177,7 @@ func (a *app) rootCommand() *cobra.Command {
 		a.configCommand(),
 		a.doctorCommand(),
 		a.completionCommand(root),
+		a.uninstallCommand(),
 		a.updateSkillCommand(),
 		a.versionCommand(),
 	)

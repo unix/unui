@@ -293,6 +293,38 @@ func SkillInstallFailed() ErrorText {
 	}
 }
 
+func InstallationNotDetected() ErrorText {
+	return ErrorText{
+		Title:   "Installation method not detected",
+		Message: "unUI could not determine how this CLI executable was installed.",
+		Hint:    "Reinstall with the official platform script or the global `@unix/unui` npm package, then try again.",
+	}
+}
+
+func InstallationReceiptInvalid() ErrorText {
+	return ErrorText{
+		Title:   "Installation receipt is invalid",
+		Message: "The script installation receipt does not match the current unUI executable.",
+		Hint:    "Reinstall with the official platform script before attempting removal.",
+	}
+}
+
+func PackageManagerNotDetected() ErrorText {
+	return ErrorText{
+		Title:   "Package manager not detected",
+		Message: "The CLI came from the `@unix/unui` npm package, but its global package manager could not be identified.",
+		Hint:    "Use the package manager that installed `@unix/unui` to remove the global package.",
+	}
+}
+
+func UninstallFailed() ErrorText {
+	return ErrorText{
+		Title:   "Could not uninstall the unUI CLI",
+		Message: "The verified install.sh executable or its receipt could not be removed.",
+		Hint:    "Check the installation directory permissions and run `unui uninstall --yes` again.",
+	}
+}
+
 func Internal(code string) ErrorText {
 	switch code {
 	case "DEVICE_KEY_FAILED":

@@ -122,6 +122,7 @@ func TestHelpUsesStructuredLayout(t *testing.T) {
 		"Commands",
 		"auth [command]",
 		"config [command]",
+		"uninstall",
 		"update-skill",
 		"Options",
 		"Examples",
