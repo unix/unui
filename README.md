@@ -4,6 +4,20 @@ The unUI CLI turns natural-language interface requests into evidence-backed
 design guidance that developers and coding agents can use to build better user
 interfaces. Learn more at the official [unUI website](https://unui.cc/).
 
+## Install
+
+On macOS or Linux, download and run the official installer:
+
+```sh
+curl -fsSL https://unui.cc/install.sh | sh
+```
+
+Alternatively, install the cross-platform npm package:
+
+```sh
+npm install --global @unix/unui
+```
+
 ## Quick start
 
 After installing the CLI, log in once and install the bundled skill for your
