@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	bundledskill "github.com/unix/unui-cli/skill"
+	bundledskill "github.com/unix/unui/skill"
 )
 
 func TestSkillUpdateInstallsBundledSkillForCodex(t *testing.T) {

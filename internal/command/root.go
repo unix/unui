@@ -13,14 +13,14 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/unix/unui-cli/internal/api"
-	"github.com/unix/unui-cli/internal/buildinfo"
-	cliconfig "github.com/unix/unui-cli/internal/config"
-	"github.com/unix/unui-cli/internal/installation"
-	"github.com/unix/unui-cli/internal/message"
-	"github.com/unix/unui-cli/internal/output"
-	"github.com/unix/unui-cli/internal/proof"
-	"github.com/unix/unui-cli/internal/store"
+	"github.com/unix/unui/internal/api"
+	"github.com/unix/unui/internal/buildinfo"
+	cliconfig "github.com/unix/unui/internal/config"
+	"github.com/unix/unui/internal/installation"
+	"github.com/unix/unui/internal/message"
+	"github.com/unix/unui/internal/output"
+	"github.com/unix/unui/internal/proof"
+	"github.com/unix/unui/internal/store"
 )
 
 const (

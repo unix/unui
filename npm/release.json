@@ -4,9 +4,9 @@
   "platformPackagePrefix": "@unix/unui",
   "description": "Evidence-backed design guidance for developers and coding agents.",
   "license": "Apache-2.0",
-  "repository": "https://github.com/unix/unui-cli.git",
+  "repository": "https://github.com/unix/unui.git",
   "homepage": "https://unui.cc/",
-  "bugs": "https://github.com/unix/unui-cli/issues",
+  "bugs": "https://github.com/unix/unui/issues",
   "registry": "https://registry.npmjs.org/",
   "node": ">=22.14.0",
   "confirmations": {
@@ -14,7 +14,7 @@
     "license": true
   },
   "trustedPublishing": {
-    "repository": "unix/unui-cli",
+    "repository": "unix/unui",
     "workflow": "release.yml",
     "environment": "npm"
   }

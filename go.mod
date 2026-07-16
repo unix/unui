@@ -1,4 +1,4 @@
-module github.com/unix/unui-cli
+module github.com/unix/unui
 
 go 1.25.8
 

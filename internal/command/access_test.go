@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	cliconfig "github.com/unix/unui-cli/internal/config"
-	"github.com/unix/unui-cli/internal/output"
-	"github.com/unix/unui-cli/internal/proof"
-	"github.com/unix/unui-cli/internal/store"
+	cliconfig "github.com/unix/unui/internal/config"
+	"github.com/unix/unui/internal/output"
+	"github.com/unix/unui/internal/proof"
+	"github.com/unix/unui/internal/store"
 )
 
 func TestAskRefreshesRejectedAccessTokenAndReturnsOneJSONEnvelope(t *testing.T) {

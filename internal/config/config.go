@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/unix/unui-cli/internal/home"
+	"github.com/unix/unui/internal/home"
 )
 
 const DefaultRegistry = "https://api.unui.cc"

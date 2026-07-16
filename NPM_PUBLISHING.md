@@ -60,7 +60,7 @@ Download the existing GitHub Release and build the npm packages:
 ```sh
 mkdir -p dist/release-v0.1.0
 gh release download v0.1.0 \
-  --repo unix/unui-cli \
+  --repo unix/unui \
   --dir dist/release-v0.1.0 \
   --clobber
 node npm/scripts/build-packages.mjs \
@@ -86,7 +86,7 @@ continue after a partial failure.
 The npm account must have 2FA enabled. Trusted Publishing is prepared for:
 
 ```text
-Repository: unix/unui-cli
+Repository: unix/unui
 Workflow: release.yml
 Environment: npm
 Allowed action: npm publish
@@ -131,7 +131,7 @@ git push origin v0.2.0-rc.2
 ```
 
 Confirm that all seven packages exist at `0.2.0-rc.2`, use the `next` dist-tag,
-and show npm provenance linked to `unix/unui-cli`.
+and show npm provenance linked to `unix/unui`.
 
 After the OIDC release succeeds, preview the commands that set every package's
 publishing access to:

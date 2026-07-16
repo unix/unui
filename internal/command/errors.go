@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/unix/unui-cli/internal/api"
-	cliconfig "github.com/unix/unui-cli/internal/config"
-	"github.com/unix/unui-cli/internal/message"
+	"github.com/unix/unui/internal/api"
+	cliconfig "github.com/unix/unui/internal/config"
+	"github.com/unix/unui/internal/message"
 )
 
 var optionPattern = regexp.MustCompile(`-{1,2}[a-zA-Z0-9][a-zA-Z0-9-]*`)

@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/unix/unui-cli/internal/home"
-	"github.com/unix/unui-cli/internal/message"
-	"github.com/unix/unui-cli/internal/skillinstall"
-	bundledskill "github.com/unix/unui-cli/skill"
+	"github.com/unix/unui/internal/home"
+	"github.com/unix/unui/internal/message"
+	"github.com/unix/unui/internal/skillinstall"
+	bundledskill "github.com/unix/unui/skill"
 )
 
 type updateSkillData struct {

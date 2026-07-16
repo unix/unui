@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/unix/unui-cli/internal/proof"
-	cliversion "github.com/unix/unui-cli/internal/version"
+	"github.com/unix/unui/internal/proof"
+	cliversion "github.com/unix/unui/internal/version"
 )
 
 const (

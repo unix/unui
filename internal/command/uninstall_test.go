@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/unix/unui-cli/internal/installation"
-	"github.com/unix/unui-cli/internal/output"
+	"github.com/unix/unui/internal/installation"
+	"github.com/unix/unui/internal/output"
 )
 
 func TestUninstallJSONShowsNPMRemovalCommand(t *testing.T) {

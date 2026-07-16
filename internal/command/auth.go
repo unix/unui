@@ -10,12 +10,12 @@ import (
 
 	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
-	"github.com/unix/unui-cli/internal/api"
-	"github.com/unix/unui-cli/internal/browser"
-	cliconfig "github.com/unix/unui-cli/internal/config"
-	"github.com/unix/unui-cli/internal/message"
-	"github.com/unix/unui-cli/internal/proof"
-	"github.com/unix/unui-cli/internal/store"
+	"github.com/unix/unui/internal/api"
+	"github.com/unix/unui/internal/browser"
+	cliconfig "github.com/unix/unui/internal/config"
+	"github.com/unix/unui/internal/message"
+	"github.com/unix/unui/internal/proof"
+	"github.com/unix/unui/internal/store"
 )
 
 func (a *app) authCommand() *cobra.Command {

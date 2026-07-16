@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/unix/unui-cli/internal/command"
+	"github.com/unix/unui/internal/command"
 )
 
 func main() {

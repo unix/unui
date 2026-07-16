@@ -15,9 +15,9 @@ builds:
     ldflags:
       - >-
         -s -w
-        -X github.com/unix/unui-cli/internal/buildinfo.Version={{ .Version }}
-        -X github.com/unix/unui-cli/internal/buildinfo.Commit={{ .FullCommit }}
-        -X github.com/unix/unui-cli/internal/buildinfo.Date={{ .CommitDate }}
+        -X github.com/unix/unui/internal/buildinfo.Version={{ .Version }}
+        -X github.com/unix/unui/internal/buildinfo.Commit={{ .FullCommit }}
+        -X github.com/unix/unui/internal/buildinfo.Date={{ .CommitDate }}
     goos:
       - darwin
       - linux

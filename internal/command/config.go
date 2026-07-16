@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	cliconfig "github.com/unix/unui-cli/internal/config"
-	"github.com/unix/unui-cli/internal/home"
+	cliconfig "github.com/unix/unui/internal/config"
+	"github.com/unix/unui/internal/home"
 )
 
 func (a *app) configCommand() *cobra.Command {

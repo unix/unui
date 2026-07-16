@@ -10,7 +10,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
-	"github.com/unix/unui-cli/internal/buildinfo"
+	"github.com/unix/unui/internal/buildinfo"
 )
 
 const SchemaVersion = "1"

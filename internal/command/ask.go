@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/unix/unui-cli/internal/message"
+	"github.com/unix/unui/internal/message"
 )
 
 func (a *app) askCommand() *cobra.Command {

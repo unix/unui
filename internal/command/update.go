@@ -10,15 +10,15 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/unix/unui-cli/internal/home"
-	"github.com/unix/unui-cli/internal/installation"
-	"github.com/unix/unui-cli/internal/message"
-	cliversion "github.com/unix/unui-cli/internal/version"
+	"github.com/unix/unui/internal/home"
+	"github.com/unix/unui/internal/installation"
+	"github.com/unix/unui/internal/message"
+	cliversion "github.com/unix/unui/internal/version"
 	"golang.org/x/mod/semver"
 )
 
 const (
-	githubLatestReleaseURL = "https://api.github.com/repos/unix/unui-cli/releases/latest"
+	githubLatestReleaseURL = "https://api.github.com/repos/unix/unui/releases/latest"
 	githubUserAgent        = "unui-cli"
 )
 

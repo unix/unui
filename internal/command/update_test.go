@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/unix/unui-cli/internal/buildinfo"
-	"github.com/unix/unui-cli/internal/installation"
-	"github.com/unix/unui-cli/internal/output"
+	"github.com/unix/unui/internal/buildinfo"
+	"github.com/unix/unui/internal/installation"
+	"github.com/unix/unui/internal/output"
 )
 
 func TestUpdateJSONShowsInstallScriptCommand(t *testing.T) {
@@ -88,7 +88,7 @@ func TestUpdateReportsAlreadyLatestWithoutDetectingInstallation(t *testing.T) {
 		},
 		fetchRelease: func(context.Context) (releaseInfo, error) {
 			return releaseInfo{
-				URL:     "https://github.com/unix/unui-cli/releases/tag/v0.1.0",
+				URL:     "https://github.com/unix/unui/releases/tag/v0.1.0",
 				Version: "v0.1.0",
 			}, nil
 		},
@@ -121,7 +121,7 @@ func TestUpdateJSONTreatsNewerLocalVersionAsCurrent(t *testing.T) {
 		buildInfo,
 		verifiedInstallScriptInfo(),
 		releaseInfo{
-			URL:     "https://github.com/unix/unui-cli/releases/tag/v0.2.0",
+			URL:     "https://github.com/unix/unui/releases/tag/v0.2.0",
 			Version: "v0.2.0",
 		},
 	)
@@ -215,7 +215,7 @@ func runUpdateCommand(
 		testBuildInfo,
 		info,
 		releaseInfo{
-			URL:     "https://github.com/unix/unui-cli/releases/tag/v0.2.0",
+			URL:     "https://github.com/unix/unui/releases/tag/v0.2.0",
 			Version: "v0.2.0",
 		},
 	)

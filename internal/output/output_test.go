@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/unix/unui-cli/internal/buildinfo"
+	"github.com/unix/unui/internal/buildinfo"
 )
 
 func TestStatusUsesColorWhenForced(t *testing.T) {

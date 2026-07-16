@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/unix/unui-cli/internal/home"
+	"github.com/unix/unui/internal/home"
 )
 
 const credentialsPathEnvironment = "UNUI_CREDENTIALS_PATH"

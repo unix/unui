@@ -5,9 +5,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/unix/unui-cli/internal/api"
-	"github.com/unix/unui-cli/internal/message"
-	"github.com/unix/unui-cli/internal/store"
+	"github.com/unix/unui/internal/api"
+	"github.com/unix/unui/internal/message"
+	"github.com/unix/unui/internal/store"
 )
 
 func withCredentialLock(

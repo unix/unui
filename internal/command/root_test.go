@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/unix/unui-cli/internal/buildinfo"
-	cliconfig "github.com/unix/unui-cli/internal/config"
-	"github.com/unix/unui-cli/internal/output"
-	"github.com/unix/unui-cli/internal/store"
+	"github.com/unix/unui/internal/buildinfo"
+	cliconfig "github.com/unix/unui/internal/config"
+	"github.com/unix/unui/internal/output"
+	"github.com/unix/unui/internal/store"
 )
 
 var testBuildInfo = buildinfo.Info{

@@ -6,8 +6,8 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	"github.com/unix/unui-cli/internal/api"
-	"github.com/unix/unui-cli/internal/store"
+	"github.com/unix/unui/internal/api"
+	"github.com/unix/unui/internal/store"
 )
 
 func (a *app) doctorCommand() *cobra.Command {
