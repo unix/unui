@@ -11,9 +11,17 @@ import (
 	"time"
 
 	"github.com/unix/unui-cli/internal/proof"
+	cliversion "github.com/unix/unui-cli/internal/version"
+)
+
+const (
+	CurrentVersionHeader  = "x-unui-cli-version"
+	MinimumVersionHeader  = "x-unui-cli-min-version"
+	DefaultMinimumVersion = "0.1.0"
 )
 
 type Error struct {
+	Code    string
 	Status  int
 	Message string
 	Body    any
@@ -23,9 +31,42 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("API request failed (%d): %s", e.Status, e.Message)
 }
 
+type MinimumVersionError struct {
+	CurrentVersion string
+	MinimumVersion string
+}
+
+func (e *MinimumVersionError) Error() string {
+	return fmt.Sprintf(
+		"CLI version %s is below required version %s",
+		e.CurrentVersion,
+		e.MinimumVersion,
+	)
+}
+
+type VersionContractError struct {
+	MinimumVersion string
+}
+
+func (e *VersionContractError) Error() string {
+	return fmt.Sprintf(
+		"API returned invalid minimum CLI version %q",
+		e.MinimumVersion,
+	)
+}
+
+type CurrentVersionError struct {
+	CurrentVersion string
+}
+
+func (e *CurrentVersionError) Error() string {
+	return fmt.Sprintf("CLI returned invalid version %q", e.CurrentVersion)
+}
+
 type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
+	Version    string
 }
 
 type CreateAuthorizationRequest struct {
@@ -230,6 +271,7 @@ func (c Client) do(
 		return err
 	}
 	request.Header.Set("Accept", "application/json")
+	request.Header.Set(CurrentVersionHeader, c.currentVersion())
 	if input != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}
@@ -242,6 +284,9 @@ func (c Client) do(
 		return err
 	}
 	defer response.Body.Close()
+	if err := c.checkMinimumVersion(response.Header); err != nil {
+		return err
+	}
 	payload, err := io.ReadAll(response.Body)
 	if err != nil {
 		return err
@@ -254,7 +299,9 @@ func (c Client) do(
 		if value, ok := bodyValue["message"].(string); ok {
 			message = value
 		}
+		code, _ := bodyValue["code"].(string)
 		return &Error{
+			Code:    code,
 			Status:  response.StatusCode,
 			Message: message,
 			Body:    bodyValue,
@@ -264,4 +311,42 @@ func (c Client) do(
 		return nil
 	}
 	return json.Unmarshal(payload, output)
+}
+
+func (c Client) currentVersion() string {
+	version := strings.TrimSpace(c.Version)
+	if cliversion.IsDevelopment(version) {
+		return "dev"
+	}
+	return version
+}
+
+func (c Client) checkMinimumVersion(headers http.Header) error {
+	minimumValue := strings.TrimSpace(headers.Get(MinimumVersionHeader))
+	if minimumValue == "" {
+		minimumValue = DefaultMinimumVersion
+	}
+	minimumVersion, err := cliversion.Semantic(minimumValue)
+	if err != nil {
+		return &VersionContractError{MinimumVersion: minimumValue}
+	}
+	currentValue := c.currentVersion()
+	if cliversion.IsDevelopment(currentValue) {
+		return nil
+	}
+	currentVersion, err := cliversion.Semantic(currentValue)
+	if err != nil {
+		return &CurrentVersionError{CurrentVersion: currentValue}
+	}
+	comparison, err := cliversion.Compare(currentVersion, minimumVersion)
+	if err != nil {
+		return err
+	}
+	if comparison >= 0 {
+		return nil
+	}
+	return &MinimumVersionError{
+		CurrentVersion: cliversion.Display(currentVersion),
+		MinimumVersion: cliversion.Display(minimumVersion),
+	}
 }

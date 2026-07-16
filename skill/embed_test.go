@@ -26,3 +26,13 @@ func TestBundleContainsValidSkill(t *testing.T) {
 		}
 	}
 }
+
+func TestTextReturnsSkillMarkdown(t *testing.T) {
+	content, err := Text()
+	if err != nil {
+		t.Fatalf("read embedded SKILL.md: %v", err)
+	}
+	if !strings.Contains(content, "name: unui") {
+		t.Fatalf("unexpected skill text:\n%s", content)
+	}
+}

@@ -122,14 +122,18 @@ func TestHelpUsesStructuredLayout(t *testing.T) {
 		"Commands",
 		"auth [command]",
 		"config [command]",
+		"skill [command]",
 		"uninstall",
-		"update-skill",
+		"update",
 		"Options",
 		"Examples",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("help is missing %q:\n%s", expected, output)
 		}
+	}
+	if strings.Contains(output, "update-skill") {
+		t.Fatalf("help must not expose the replaced update-skill command:\n%s", output)
 	}
 	if strings.Contains(output, "\x1b[") {
 		t.Fatalf("--no-color must disable ANSI output: %q", output)
@@ -142,6 +146,29 @@ func TestHelpUsesStructuredLayout(t *testing.T) {
 	}
 	if strings.Contains(output, "--timeout") {
 		t.Fatalf("help must not expose a configurable timeout:\n%s", output)
+	}
+	if strings.Contains(output, "completion <shell>") {
+		t.Fatalf("help must not expose the completion command:\n%s", output)
+	}
+}
+
+func TestCompletionIsHiddenButAvailable(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := execute(
+		[]string{"completion", "zsh"},
+		&stdout,
+		&stderr,
+		testBuildInfo,
+	)
+	if exitCode != 0 {
+		t.Fatalf("unexpected exit code: %d", exitCode)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr must be empty: %q", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "#compdef unui") {
+		t.Fatalf("unexpected completion script:\n%s", stdout.String())
 	}
 }
 

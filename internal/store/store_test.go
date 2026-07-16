@@ -1,12 +1,14 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"testing"
+	"time"
 )
 
 func TestStoreSavesLoadsAndDeletesCredentials(t *testing.T) {
@@ -118,5 +120,49 @@ func TestStoreRepairsCredentialsPermissionsOnLoad(t *testing.T) {
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("unexpected repaired permissions: %o", info.Mode().Perm())
+	}
+}
+
+func TestStoreCredentialLockSerializesAccess(t *testing.T) {
+	credentialStore := Store{
+		FilePath: filepath.Join(t.TempDir(), "credentials.json"),
+	}
+	first, err := credentialStore.Lock(context.Background())
+	if err != nil {
+		t.Fatalf("acquire first lock: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	acquired := make(chan *CredentialLock, 1)
+	lockErrors := make(chan error, 1)
+	go func() {
+		second, lockErr := credentialStore.Lock(ctx)
+		if lockErr != nil {
+			lockErrors <- lockErr
+			return
+		}
+		acquired <- second
+	}()
+
+	select {
+	case second := <-acquired:
+		_ = second.Unlock()
+		t.Fatal("second lock must wait for the first lock")
+	case lockErr := <-lockErrors:
+		t.Fatalf("second lock failed before release: %v", lockErr)
+	case <-time.After(75 * time.Millisecond):
+	}
+	if err := first.Unlock(); err != nil {
+		t.Fatalf("release first lock: %v", err)
+	}
+	select {
+	case second := <-acquired:
+		if err := second.Unlock(); err != nil {
+			t.Fatalf("release second lock: %v", err)
+		}
+	case lockErr := <-lockErrors:
+		t.Fatalf("acquire second lock: %v", lockErr)
+	case <-ctx.Done():
+		t.Fatalf("second lock was not acquired: %v", ctx.Err())
 	}
 }

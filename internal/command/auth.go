@@ -225,9 +225,16 @@ func (a *app) showAuthCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			status, err := a.client().ShowAuth(ctx, credentials.AccessToken)
+			status, _, err := accessRequest(
+				a,
+				ctx,
+				credentials,
+				func(accessToken string) (api.AuthShowResponse, error) {
+					return a.client().ShowAuth(ctx, accessToken)
+				},
+			)
 			if err != nil {
-				return apiCommandError(err)
+				return err
 			}
 			return a.printer().Success(status, a.authShowOutput(status))
 		},

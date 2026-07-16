@@ -31,6 +31,9 @@ const (
 	ReceiptFilename      = ".unui-install.json"
 	ReceiptSchemaVersion = "1"
 
+	InstallPowerShellUpdateCommand = "irm https://unui.cc/install.ps1 | iex"
+	InstallScriptUpdateCommand     = "curl -fsSL https://unui.cc/install.sh | sh"
+
 	SourceInstallScript     = "install.sh"
 	SourceInstallPowerShell = "install.ps1"
 	SourceNPM               = "npm"
@@ -72,6 +75,30 @@ func Detect() (Info, error) {
 		return Info{}, err
 	}
 	return detect(executable, os.Getenv)
+}
+
+func UpdateCommand(info Info) string {
+	switch info.Source {
+	case SourceInstallScript:
+		return InstallScriptUpdateCommand
+	case SourceInstallPowerShell:
+		return InstallPowerShellUpdateCommand
+	case SourceNPM:
+		if !info.Global || info.Temporary {
+			return ""
+		}
+		switch info.Manager {
+		case ManagerNPM:
+			return "npm update -g " + NPMPackageName
+		case ManagerPNPM:
+			return "pnpm update -g --latest " + NPMPackageName
+		case ManagerYarn:
+			return "yarn global upgrade " + NPMPackageName + "@latest"
+		case ManagerBun:
+			return "bun add -g " + NPMPackageName + "@latest"
+		}
+	}
+	return ""
 }
 
 func Remove(info Info) error {

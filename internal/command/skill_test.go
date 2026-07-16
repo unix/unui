@@ -7,9 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	bundledskill "github.com/unix/unui-cli/skill"
 )
 
-func TestUpdateSkillInstallsBundledSkillForCodex(t *testing.T) {
+func TestSkillUpdateInstallsBundledSkillForCodex(t *testing.T) {
 	userHome := t.TempDir()
 	t.Setenv("HOME", userHome)
 	t.Setenv("USERPROFILE", userHome)
@@ -17,7 +19,7 @@ func TestUpdateSkillInstallsBundledSkillForCodex(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := Execute(
-		[]string{"update-skill", "--client", "codex", "--json"},
+		[]string{"skill", "update", "--client", "codex", "--json"},
 		&stdout,
 		&stderr,
 	)
@@ -59,7 +61,7 @@ func TestUpdateSkillInstallsBundledSkillForCodex(t *testing.T) {
 	}
 }
 
-func TestUpdateSkillRejectsUnsupportedClient(t *testing.T) {
+func TestSkillUpdateRejectsUnsupportedClient(t *testing.T) {
 	userHome := t.TempDir()
 	t.Setenv("HOME", userHome)
 	t.Setenv("USERPROFILE", userHome)
@@ -67,7 +69,7 @@ func TestUpdateSkillRejectsUnsupportedClient(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := Execute(
-		[]string{"update-skill", "--client", "other", "--json"},
+		[]string{"skill", "update", "--client", "other", "--json"},
 		&stdout,
 		&stderr,
 	)
@@ -88,5 +90,89 @@ func TestUpdateSkillRejectsUnsupportedClient(t *testing.T) {
 	}
 	if envelope.Error.Code != "UNSUPPORTED_CLIENT" {
 		t.Fatalf("unexpected error: %#v", envelope.Error)
+	}
+}
+
+func TestSkillUpdateSupportsAllClients(t *testing.T) {
+	userHome := t.TempDir()
+	t.Setenv("HOME", userHome)
+	t.Setenv("USERPROFILE", userHome)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Execute(
+		[]string{"skill", "update", "--client", "all", "--json"},
+		&stdout,
+		&stderr,
+	)
+	if exitCode != 0 {
+		t.Fatalf("unexpected exit code: %d\n%s", exitCode, stderr.String())
+	}
+
+	var envelope struct {
+		Data updateSkillData `json:"data"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+		t.Fatalf("stdout is not one JSON document: %v", err)
+	}
+	if len(envelope.Data.Targets) != 3 {
+		t.Fatalf("unexpected targets: %#v", envelope.Data.Targets)
+	}
+	for _, target := range envelope.Data.Targets {
+		if _, err := os.Stat(filepath.Join(target.Path, "SKILL.md")); err != nil {
+			t.Fatalf("%s skill was not created: %v", target.Client, err)
+		}
+	}
+}
+
+func TestSkillShowPrintsBundledSkillText(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Execute(
+		[]string{"skill", "show", "--no-color"},
+		&stdout,
+		&stderr,
+	)
+	if exitCode != 0 {
+		t.Fatalf("unexpected exit code: %d\n%s", exitCode, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr must be empty: %q", stderr.String())
+	}
+	text, err := bundledskill.Text()
+	if err != nil {
+		t.Fatalf("read bundled skill text: %v", err)
+	}
+	if stdout.String() != text {
+		t.Fatalf("unexpected skill text:\n%s", stdout.String())
+	}
+}
+
+func TestSkillShowJSONIncludesVersionAndText(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := Execute(
+		[]string{"skill", "show", "--json"},
+		&stdout,
+		&stderr,
+	)
+	if exitCode != 0 {
+		t.Fatalf("unexpected exit code: %d\n%s", exitCode, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr must be empty in JSON mode: %q", stderr.String())
+	}
+
+	var envelope struct {
+		Data showSkillData `json:"data"`
+		OK   bool          `json:"ok"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+		t.Fatalf("stdout is not one JSON document: %v", err)
+	}
+	if !envelope.OK ||
+		envelope.Data.SkillVersion == "" ||
+		!strings.Contains(envelope.Data.Text, "name: unui") {
+		t.Fatalf("unexpected envelope: %#v", envelope)
 	}
 }

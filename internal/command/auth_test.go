@@ -3,6 +3,7 @@ package command
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	cliconfig "github.com/unix/unui-cli/internal/config"
+	"github.com/unix/unui-cli/internal/proof"
 	"github.com/unix/unui-cli/internal/store"
 )
 
@@ -108,19 +110,35 @@ func TestAuthStatusCommandIsRemoved(t *testing.T) {
 
 func TestDoctorVerifiesCachedAccessTokenWithAPI(t *testing.T) {
 	statusRequested := false
+	refreshRequested := false
 	server := httptest.NewServer(http.HandlerFunc(
 		func(writer http.ResponseWriter, request *http.Request) {
-			if request.Method != http.MethodGet ||
-				request.URL.Path != "/v1/cli/status" {
+			switch request.URL.Path {
+			case "/v1/cli/status":
+				if request.Method != http.MethodGet {
+					http.NotFound(writer, request)
+					return
+				}
+				statusRequested = true
+				http.Error(writer, "unauthorized", http.StatusUnauthorized)
+			case "/v1/cli/auth/access-tokens":
+				if request.Method != http.MethodPost {
+					http.NotFound(writer, request)
+					return
+				}
+				refreshRequested = true
+				http.Error(writer, "unauthorized", http.StatusUnauthorized)
+			default:
 				http.NotFound(writer, request)
-				return
 			}
-			statusRequested = true
-			http.Error(writer, "unauthorized", http.StatusUnauthorized)
 		},
 	))
 	defer server.Close()
 
+	device, err := proof.NewDevice()
+	if err != nil {
+		t.Fatalf("create test device: %v", err)
+	}
 	directory := t.TempDir()
 	t.Setenv("UNUI_CONFIG_PATH", filepath.Join(directory, "config.json"))
 	t.Setenv("UNUI_CREDENTIALS_PATH", filepath.Join(directory, "credentials.json"))
@@ -130,10 +148,12 @@ func TestDoctorVerifiesCachedAccessTokenWithAPI(t *testing.T) {
 	if err := store.Save(store.Credentials{
 		AccessToken:          "revoked-access-token",
 		AccessTokenExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339Nano),
-		DeviceID:             "device-123",
+		DeviceID:             device.DeviceID,
 		DeviceName:           "Design Mac",
 		PersonalToken:        "revoked-personal-token",
 		Platform:             "darwin/arm64",
+		PrivateKey:           device.PrivateKey,
+		PublicKey:            device.PublicKey,
 		Registry:             server.URL,
 	}); err != nil {
 		t.Fatalf("save credentials: %v", err)
@@ -147,6 +167,9 @@ func TestDoctorVerifiesCachedAccessTokenWithAPI(t *testing.T) {
 	}
 	if !statusRequested {
 		t.Fatal("doctor must verify the cached access token with the API")
+	}
+	if !refreshRequested {
+		t.Fatal("doctor must try to refresh a rejected access token")
 	}
 
 	var envelope struct {
@@ -163,6 +186,119 @@ func TestDoctorVerifiesCachedAccessTokenWithAPI(t *testing.T) {
 	}
 	if envelope.Data.AccessIssue["code"] != "AUTH_REQUIRED" {
 		t.Fatalf("unexpected access issue: %#v", envelope.Data.AccessIssue)
+	}
+}
+
+func TestDoctorFailsWhenCLIUpdateIsRequired(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(
+		func(writer http.ResponseWriter, request *http.Request) {
+			if request.Header.Get("x-unui-cli-version") != testBuildInfo.Version {
+				t.Fatalf(
+					"unexpected CLI version header: %q",
+					request.Header.Get("x-unui-cli-version"),
+				)
+			}
+			writer.Header().Set("x-unui-cli-min-version", "0.2.0")
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = writer.Write([]byte(`{}`))
+		},
+	))
+	defer server.Close()
+	prepareAuthShowTest(t, server.URL)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := execute(
+		[]string{"doctor", "--json"},
+		&stdout,
+		&stderr,
+		testBuildInfo,
+	)
+	if exitCode != 1 {
+		t.Fatalf("unexpected exit code: %d", exitCode)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr must be empty in JSON mode: %q", stderr.String())
+	}
+
+	var envelope struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode doctor output: %v\n%s", err, stdout.String())
+	}
+	if envelope.OK || envelope.Error.Code != "CLI_UPDATE_REQUIRED" {
+		t.Fatalf("unexpected doctor result: %#v", envelope)
+	}
+}
+
+func TestLogoutStillDeletesLocalCredentialsWhenCLIUpdateIsRequired(
+	t *testing.T,
+) {
+	server := httptest.NewServer(http.HandlerFunc(
+		func(writer http.ResponseWriter, _ *http.Request) {
+			writer.Header().Set("x-unui-cli-min-version", "0.2.0")
+			writer.WriteHeader(http.StatusUpgradeRequired)
+		},
+	))
+	defer server.Close()
+
+	device, err := proof.NewDevice()
+	if err != nil {
+		t.Fatalf("create test device: %v", err)
+	}
+	directory := t.TempDir()
+	t.Setenv("UNUI_CONFIG_PATH", filepath.Join(directory, "config.json"))
+	t.Setenv("UNUI_CREDENTIALS_PATH", filepath.Join(directory, "credentials.json"))
+	if _, err := cliconfig.DefaultStore().SetRegistry(server.URL); err != nil {
+		t.Fatalf("set registry: %v", err)
+	}
+	if err := store.Save(store.Credentials{
+		DeviceID:      device.DeviceID,
+		DeviceName:    "Design Mac",
+		PersonalToken: "personal-token",
+		Platform:      "darwin/arm64",
+		PrivateKey:    device.PrivateKey,
+		PublicKey:     device.PublicKey,
+		Registry:      server.URL,
+	}); err != nil {
+		t.Fatalf("save credentials: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := execute(
+		[]string{"auth", "logout", "--yes", "--json"},
+		&stdout,
+		&stderr,
+		testBuildInfo,
+	)
+	if exitCode != 0 {
+		t.Fatalf("unexpected exit code: %d\n%s", exitCode, stderr.String())
+	}
+	if _, err := store.Load(); !errors.Is(err, store.ErrNotLoggedIn) {
+		t.Fatalf("local credentials must be deleted, received %v", err)
+	}
+
+	var envelope struct {
+		Data struct {
+			LocalCredentialDeleted bool              `json:"localCredentialDeleted"`
+			RemoteRevocationIssue  map[string]string `json:"remoteRevocationIssue"`
+			RemoteRevoked          bool              `json:"remoteRevoked"`
+		} `json:"data"`
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode logout output: %v\n%s", err, stdout.String())
+	}
+	if !envelope.OK ||
+		!envelope.Data.LocalCredentialDeleted ||
+		envelope.Data.RemoteRevoked ||
+		envelope.Data.RemoteRevocationIssue["code"] != "CLI_UPDATE_REQUIRED" {
+		t.Fatalf("unexpected logout result: %#v", envelope)
 	}
 }
 

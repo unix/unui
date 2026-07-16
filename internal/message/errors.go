@@ -281,7 +281,7 @@ func SkillClientNotDetected() ErrorText {
 	return ErrorText{
 		Title:   "No supported coding agent was detected",
 		Message: "unUI could not find a local Codex, Claude Code, or Cursor configuration.",
-		Hint:    "Run `unui update-skill --client <client>` with codex, claude, or cursor.",
+		Hint:    "Run `unui skill update --client <client>` with codex, claude, or cursor.",
 	}
 }
 
@@ -305,7 +305,7 @@ func InstallationReceiptInvalid() ErrorText {
 	return ErrorText{
 		Title:   "Installation receipt is invalid",
 		Message: "The script installation receipt does not match the current unUI executable.",
-		Hint:    "Reinstall with the official platform script before attempting removal.",
+		Hint:    "Reinstall with the official platform script before updating or removing the CLI.",
 	}
 }
 
@@ -313,7 +313,84 @@ func PackageManagerNotDetected() ErrorText {
 	return ErrorText{
 		Title:   "Package manager not detected",
 		Message: "The CLI came from the `@unix/unui` npm package, but its global package manager could not be identified.",
-		Hint:    "Use the package manager that installed `@unix/unui` to remove the global package.",
+		Hint:    "Use the package manager that installed `@unix/unui` to update or remove the global package.",
+	}
+}
+
+func CurrentVersionUnsupported(version string) ErrorText {
+	return ErrorText{
+		Title: "Current version cannot be compared",
+		Message: fmt.Sprintf(
+			"The running CLI reports version %q, which is not a semantic release version.",
+			version,
+		),
+		Hint: "Install a released version of the unUI CLI, then run `unui update` again.",
+	}
+}
+
+func CLIUpdateRequired(currentVersion, minimumVersion string) ErrorText {
+	return ErrorText{
+		Title: "CLI update required",
+		Message: fmt.Sprintf(
+			"The unUI API requires CLI version %s or newer; the current version is %s.",
+			minimumVersion,
+			currentVersion,
+		),
+		Hint: "Run `unui update`, upgrade the CLI, then run the command again.",
+	}
+}
+
+func InvalidCLIVersion(version string) ErrorText {
+	return ErrorText{
+		Title: "CLI version is invalid",
+		Message: fmt.Sprintf(
+			"The running CLI reports version %q, which the unUI API cannot compare.",
+			version,
+		),
+		Hint: "Install a released version of the unUI CLI, then run the command again.",
+	}
+}
+
+func InvalidAPIVersionContract(version string) ErrorText {
+	return ErrorText{
+		Title: "API version requirement is invalid",
+		Message: fmt.Sprintf(
+			"The unUI API returned invalid minimum CLI version %q.",
+			version,
+		),
+		Hint: "Try again later or contact unUI support if the problem continues.",
+	}
+}
+
+func LatestReleaseInvalid() ErrorText {
+	return ErrorText{
+		Title:   "Latest release version is invalid",
+		Message: "The latest unUI GitHub Release does not use a semantic version tag.",
+		Hint:    "Check the unUI GitHub Releases page and try again after the release tag is corrected.",
+	}
+}
+
+func UpdateCheckFailed() ErrorText {
+	return ErrorText{
+		Title:   "Could not check for updates",
+		Message: "The CLI could not retrieve the latest unUI release from GitHub.",
+		Hint:    "Check your connection and GitHub availability, then try again.",
+	}
+}
+
+func UpdateCheckTimedOut() ErrorText {
+	return ErrorText{
+		Title:   "Update check timed out",
+		Message: "GitHub did not return the latest unUI release within 30 seconds.",
+		Hint:    "Check your connection and try again.",
+	}
+}
+
+func UpdateCheckCanceled() ErrorText {
+	return ErrorText{
+		Title:   "Update check canceled",
+		Message: "The command was canceled before GitHub returned the latest unUI release.",
+		Hint:    "Run `unui update` again when you are ready.",
 	}
 }
 

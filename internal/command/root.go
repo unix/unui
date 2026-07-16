@@ -35,6 +35,7 @@ type app struct {
 	buildInfo      buildinfo.Info
 	configStore    cliconfig.Store
 	detectInstall  func() (installation.Info, error)
+	fetchRelease   func(context.Context) (releaseInfo, error)
 	json           bool
 	noColor        bool
 	registry       string
@@ -115,9 +116,9 @@ func (a *app) rootCommand() *cobra.Command {
 		Use:   "unui [command]",
 		Short: "Design evidence for any coding agent",
 		Long: "Retrieve focused unUI design evidence, manage device authentication, " +
-			"install the bundled unUI skill, and inspect CLI readiness from any coding agent.",
+			"manage the bundled unUI skill, and inspect CLI readiness from any coding agent.",
 		Example: `  unui auth login
-  unui update-skill --client codex
+  unui skill update --client codex
   unui ask "Build a dense SaaS billing settings page" --json
   unui doctor`,
 		SilenceErrors: true,
@@ -178,7 +179,8 @@ func (a *app) rootCommand() *cobra.Command {
 		a.doctorCommand(),
 		a.completionCommand(root),
 		a.uninstallCommand(),
-		a.updateSkillCommand(),
+		a.updateCommand(),
+		a.skillCommand(),
 		a.versionCommand(),
 	)
 	return root
@@ -190,6 +192,7 @@ func (a *app) client() api.Client {
 		HTTPClient: &http.Client{
 			Timeout: commandTimeout,
 		},
+		Version: a.buildInfo.Version,
 	}
 }
 
@@ -233,6 +236,28 @@ func (a *app) authorizationContext(
 func (a *app) credentialsWithAccess(
 	ctx context.Context,
 ) (store.Credentials, error) {
+	var credentials store.Credentials
+	err := withCredentialLock(ctx, func() error {
+		loaded, loadErr := a.credentialsForRegistry()
+		if loadErr != nil {
+			return loadErr
+		}
+		refreshed, accessErr := a.ensureAccess(ctx, &loaded)
+		if accessErr != nil {
+			return accessErr
+		}
+		if refreshed {
+			if saveErr := store.Save(loaded); saveErr != nil {
+				return credentialStoreError(saveErr)
+			}
+		}
+		credentials = loaded
+		return nil
+	})
+	return credentials, err
+}
+
+func (a *app) credentialsForRegistry() (store.Credentials, error) {
 	credentials, err := store.Load()
 	if errors.Is(err, store.ErrNotLoggedIn) {
 		return store.Credentials{}, newCommandError(
@@ -246,12 +271,6 @@ func (a *app) credentialsWithAccess(
 	}
 	if credentialsRegistry(credentials) != a.registry {
 		return store.Credentials{}, registryAuthenticationError(a.registry)
-	}
-	if _, err := a.ensureAccess(ctx, &credentials); err != nil {
-		return store.Credentials{}, err
-	}
-	if err := store.Save(credentials); err != nil {
-		return store.Credentials{}, credentialStoreError(err)
 	}
 	return credentials, nil
 }
@@ -311,14 +330,8 @@ func (a *app) ensureAccess(
 	ctx context.Context,
 	credentials *store.Credentials,
 ) (bool, error) {
-	if credentials.AccessToken != "" {
-		expiresAt, err := time.Parse(
-			time.RFC3339Nano,
-			credentials.AccessTokenExpiresAt,
-		)
-		if err == nil && expiresAt.After(time.Now().Add(30*time.Second)) {
-			return false, nil
-		}
+	if accessTokenReady(*credentials) {
+		return false, nil
 	}
 	if credentials.PersonalToken == "" {
 		return false, newCommandError(
@@ -331,6 +344,17 @@ func (a *app) ensureAccess(
 		return false, err
 	}
 	return true, nil
+}
+
+func accessTokenReady(credentials store.Credentials) bool {
+	if credentials.AccessToken == "" {
+		return false
+	}
+	expiresAt, err := time.Parse(
+		time.RFC3339Nano,
+		credentials.AccessTokenExpiresAt,
+	)
+	return err == nil && expiresAt.After(time.Now().Add(30*time.Second))
 }
 
 func (a *app) refreshAccess(

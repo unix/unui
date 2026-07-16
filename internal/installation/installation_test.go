@@ -121,6 +121,77 @@ func TestDetectUsesNPMLauncherMetadata(t *testing.T) {
 	}
 }
 
+func TestUpdateCommandMatchesInstallationSource(t *testing.T) {
+	tests := []struct {
+		name     string
+		info     Info
+		expected string
+	}{
+		{
+			name:     "install.sh",
+			info:     Info{Source: SourceInstallScript},
+			expected: InstallScriptUpdateCommand,
+		},
+		{
+			name:     "install.ps1",
+			info:     Info{Source: SourceInstallPowerShell},
+			expected: InstallPowerShellUpdateCommand,
+		},
+		{
+			name: "npm",
+			info: Info{
+				Global:  true,
+				Manager: ManagerNPM,
+				Source:  SourceNPM,
+			},
+			expected: "npm update -g @unix/unui",
+		},
+		{
+			name: "pnpm",
+			info: Info{
+				Global:  true,
+				Manager: ManagerPNPM,
+				Source:  SourceNPM,
+			},
+			expected: "pnpm update -g --latest @unix/unui",
+		},
+		{
+			name: "yarn",
+			info: Info{
+				Global:  true,
+				Manager: ManagerYarn,
+				Source:  SourceNPM,
+			},
+			expected: "yarn global upgrade @unix/unui@latest",
+		},
+		{
+			name: "bun",
+			info: Info{
+				Global:  true,
+				Manager: ManagerBun,
+				Source:  SourceNPM,
+			},
+			expected: "bun add -g @unix/unui@latest",
+		},
+		{
+			name: "temporary npm",
+			info: Info{
+				Manager:   ManagerNPM,
+				Source:    SourceNPM,
+				Temporary: true,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if command := UpdateCommand(test.info); command != test.expected {
+				t.Fatalf("unexpected update command: %q", command)
+			}
+		})
+	}
+}
+
 func TestDetectDoesNotSuggestGlobalRemovalForTemporaryNPMRun(t *testing.T) {
 	environment := map[string]string{
 		environmentInstallSource: SourceNPM,

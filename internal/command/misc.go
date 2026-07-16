@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
+	"github.com/unix/unui-cli/internal/api"
 	"github.com/unix/unui-cli/internal/store"
 )
 
@@ -40,16 +41,20 @@ func (a *app) doctorCommand() *cobra.Command {
 			if credentialRegistry != a.registry {
 				accessErr = registryAuthenticationError(a.registry)
 			} else {
-				_, accessErr = a.ensureAccess(ctx, &credentials)
+				credentials, accessErr = a.credentialsWithAccess(ctx)
 			}
 			if accessErr == nil {
-				_, showErr := a.client().ShowAuth(ctx, credentials.AccessToken)
-				if showErr != nil {
-					accessErr = apiCommandError(showErr)
-				}
+				_, credentials, accessErr = accessRequest(
+					a,
+					ctx,
+					credentials,
+					func(accessToken string) (api.AuthShowResponse, error) {
+						return a.client().ShowAuth(ctx, accessToken)
+					},
+				)
 			}
-			if accessErr == nil {
-				accessErr = store.Save(credentials)
+			if isVersionGateCommandError(accessErr) {
+				return accessErr
 			}
 			human := a.printer().Done("Doctor", "All checks passed")
 			var accessIssue map[string]string
@@ -78,9 +83,10 @@ func (a *app) doctorCommand() *cobra.Command {
 
 func (a *app) completionCommand(root *cobra.Command) *cobra.Command {
 	return &cobra.Command{
-		Use:   "completion <shell>",
-		Short: "Generate shell completion",
-		Long:  "Generate a completion script for bash, zsh, fish, or PowerShell.",
+		Use:    "completion <shell>",
+		Short:  "Generate shell completion",
+		Long:   "Generate a completion script for bash, zsh, fish, or PowerShell.",
+		Hidden: true,
 		Args: oneOfArg(
 			"shell",
 			"bash",

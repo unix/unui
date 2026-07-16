@@ -137,7 +137,7 @@ After installation, authenticate and install the bundled skill:
 
 \`\`\`sh
 unui auth login
-unui update-skill --client codex
+unui skill update --client codex
 \`\`\`
 
 Learn more at [unui.cc](${config.homepage}).

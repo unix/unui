@@ -1,6 +1,7 @@
 package command
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -41,9 +42,16 @@ func (a *app) askCommand() *cobra.Command {
 			if strings.TrimSpace(category) != "" {
 				input["category"] = category
 			}
-			result, err := a.client().Ask(ctx, credentials.AccessToken, input)
+			result, _, err := accessRequest(
+				a,
+				ctx,
+				credentials,
+				func(accessToken string) (json.RawMessage, error) {
+					return a.client().Ask(ctx, accessToken, input)
+				},
+			)
 			if err != nil {
-				return apiCommandError(err)
+				return err
 			}
 			return a.printer().Success(result, prettyJSON(result))
 		},

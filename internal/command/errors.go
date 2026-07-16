@@ -192,8 +192,59 @@ func oneOfArg(name string, values ...string) cobra.PositionalArgs {
 }
 
 func apiCommandError(err error) error {
+	var minimumErr *api.MinimumVersionError
+	if errors.As(err, &minimumErr) {
+		return newCommandError(
+			"CLI_UPDATE_REQUIRED",
+			message.CLIUpdateRequired(
+				minimumErr.CurrentVersion,
+				minimumErr.MinimumVersion,
+			),
+			map[string]any{
+				"currentVersion": minimumErr.CurrentVersion,
+				"minimumVersion": minimumErr.MinimumVersion,
+			},
+		)
+	}
+	var contractErr *api.VersionContractError
+	if errors.As(err, &contractErr) {
+		return newCommandError(
+			"API_VERSION_CONTRACT_INVALID",
+			message.InvalidAPIVersionContract(contractErr.MinimumVersion),
+			map[string]any{
+				"minimumVersion": contractErr.MinimumVersion,
+			},
+		)
+	}
+	var currentErr *api.CurrentVersionError
+	if errors.As(err, &currentErr) {
+		return newCommandError(
+			"INVALID_CLI_VERSION",
+			message.InvalidCLIVersion(currentErr.CurrentVersion),
+			map[string]any{
+				"currentVersion": currentErr.CurrentVersion,
+			},
+		)
+	}
 	var apiErr *api.Error
 	if errors.As(err, &apiErr) {
+		if apiErr.Code == "CLI_UPDATE_REQUIRED" {
+			currentVersion := detailString(apiErr.Body, "currentVersion")
+			minimumVersion := detailString(apiErr.Body, "minimumVersion")
+			return newCommandError(
+				"CLI_UPDATE_REQUIRED",
+				message.CLIUpdateRequired(currentVersion, minimumVersion),
+				apiErr.Body,
+			)
+		}
+		if apiErr.Code == "INVALID_CLI_VERSION" {
+			currentVersion := detailString(apiErr.Body, "currentVersion")
+			return newCommandError(
+				"INVALID_CLI_VERSION",
+				message.InvalidCLIVersion(currentVersion),
+				apiErr.Body,
+			)
+		}
 		code := fmt.Sprintf("API_%d", apiErr.Status)
 		text := message.RequestRejected(apiErr.Message)
 		switch apiErr.Status {
@@ -243,6 +294,30 @@ func apiCommandError(err error) error {
 			map[string]any{"error": err.Error()},
 		)
 	}
+}
+
+func isVersionGateCommandError(err error) bool {
+	var commandErr *commandError
+	if !errors.As(err, &commandErr) {
+		return false
+	}
+	switch commandErr.Code {
+	case "API_VERSION_CONTRACT_INVALID",
+		"CLI_UPDATE_REQUIRED",
+		"INVALID_CLI_VERSION":
+		return true
+	default:
+		return false
+	}
+}
+
+func detailString(details any, key string) string {
+	values, ok := details.(map[string]any)
+	if !ok {
+		return ""
+	}
+	value, _ := values[key].(string)
+	return value
 }
 
 func credentialStoreError(err error) error {

@@ -18,17 +18,40 @@ type updateSkillData struct {
 	Targets      []skillinstall.Target `json:"targets"`
 }
 
+type showSkillData struct {
+	CLIVersion   string `json:"cliVersion"`
+	SkillVersion string `json:"skillVersion"`
+	Text         string `json:"text"`
+}
+
+func (a *app) skillCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "skill [command]",
+		Short: "Manage the bundled unUI skill",
+		Long:  "Create or replace the bundled unUI skill for supported coding agents, or print its available text.",
+		Args:  rootArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if a.json {
+				return a.printer().Help(cmd, a.buildInfo.Version)
+			}
+			return cmd.Help()
+		},
+	}
+	command.AddCommand(a.updateSkillCommand(), a.showSkillCommand())
+	return command
+}
+
 func (a *app) updateSkillCommand() *cobra.Command {
 	var client string
 	command := &cobra.Command{
-		Use:   "update-skill",
-		Short: "Install the bundled unUI skill for local coding agents",
-		Long: "Replace the user-level unUI skill for Codex, Claude Code, Cursor, " +
+		Use:   "update",
+		Short: "Create or replace the bundled skill for coding agents",
+		Long: "Create or replace the user-level unUI skill for Codex, Claude Code, Cursor, " +
 			"or every detected supported client with the version bundled in this CLI.",
 		Args: noArgs,
-		Example: `  unui update-skill
-  unui update-skill --client codex
-  unui update-skill --client claude --json`,
+		Example: `  unui skill update
+  unui skill update --client codex
+  unui skill update --client claude --json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			userHome, err := os.UserHomeDir()
 			if err != nil {
@@ -104,4 +127,28 @@ func (a *app) updateSkillCommand() *cobra.Command {
 	)
 	command.Flags().SortFlags = false
 	return command
+}
+
+func (a *app) showSkillCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "show",
+		Short: "Print the bundled skill text",
+		Args:  noArgs,
+		Example: `  unui skill show
+  unui skill show --json`,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			text, err := bundledskill.Text()
+			if err != nil {
+				return internalError("SKILL_BUNDLE_UNAVAILABLE", err)
+			}
+			return a.printer().Success(
+				showSkillData{
+					CLIVersion:   a.buildInfo.Version,
+					SkillVersion: bundledskill.Version,
+					Text:         text,
+				},
+				strings.TrimSuffix(text, "\n"),
+			)
+		},
+	}
 }
