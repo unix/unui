@@ -10,7 +10,6 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
-	"github.com/unix/unui/internal/buildinfo"
 )
 
 const SchemaVersion = "1"
@@ -152,56 +151,6 @@ func (p Printer) Warning(message string) string {
 		),
 		message,
 	)
-}
-
-func (p Printer) Version(name string, info buildinfo.Info) string {
-	lines := []string{
-		fmt.Sprintf(
-			"%s %s",
-			p.style(
-				p.Stdout,
-				lipgloss.NewStyle().
-					Bold(true).
-					Foreground(lipgloss.Magenta),
-				name,
-			),
-			p.style(
-				p.Stdout,
-				lipgloss.NewStyle().Bold(true),
-				info.Version,
-			),
-		),
-	}
-	if info.Commit != "" {
-		commit := shortCommit(info.Commit)
-		if info.Dirty {
-			commit += " (dirty)"
-		}
-		lines = append(lines, p.versionDetail("commit "+commit))
-	} else if info.Dirty {
-		lines = append(lines, p.versionDetail("source dirty"))
-	}
-	if info.Date != "" {
-		lines = append(lines, p.versionDetail("built "+info.Date))
-	}
-	lines = append(lines, p.versionDetail("runtime "+info.GoVersion))
-	return strings.Join(lines, "\n")
-}
-
-func (p Printer) versionDetail(value string) string {
-	return p.style(
-		p.Stdout,
-		lipgloss.NewStyle().Foreground(lipgloss.BrightBlack),
-		value,
-	)
-}
-
-func shortCommit(commit string) string {
-	const length = 12
-	if len(commit) <= length {
-		return commit
-	}
-	return commit[:length]
 }
 
 func (p Printer) status(

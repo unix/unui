@@ -2,7 +2,7 @@
 
 The unUI CLI turns natural-language interface requests into evidence-backed
 design guidance that developers and coding agents can use to build better user
-interfaces. Learn more at the official [unUI website](https://unui.cc/).
+interfaces. Learn more at the official [unui.cc](https://unui.cc/).
 
 ## Install
 
@@ -72,19 +72,6 @@ JSON mode writes one versioned document to stdout:
 If you are an agent setting up unUI, visit <https://unui.cc/setup.txt> to learn
 the complete setup workflow.
 
-## Version
-
-Inspect the CLI version and the source revision used to build it:
-
-```sh
-unui version
-unui version --json
-```
-
-Release binaries report their semantic version, commit, commit date, dirty
-state, and Go toolchain version. Development builds use Go's embedded module and
-VCS metadata and fall back to `dev` when that information is unavailable.
-
 ## Update and uninstall
 
 Check the latest GitHub Release and show the matching update command when a
@@ -92,7 +79,6 @@ newer version is available:
 
 ```sh
 unui update
-unui update --json
 ```
 
 If the installed version is current, unUI reports that it is already up to

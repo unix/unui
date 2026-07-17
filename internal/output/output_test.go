@@ -5,8 +5,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/unix/unui/internal/buildinfo"
 )
 
 func TestStatusUsesColorWhenForced(t *testing.T) {
@@ -35,31 +33,6 @@ func TestNoColorDisablesForcedColor(t *testing.T) {
 	}
 	if output := printer.Done("Ready", "checks passed"); strings.Contains(output, "\x1b[") {
 		t.Fatalf("expected plain output: %q", output)
-	}
-}
-
-func TestVersionShortensCommitInHumanOutput(t *testing.T) {
-	var stdout bytes.Buffer
-	printer := Printer{
-		NoColor: true,
-		Stdout:  &stdout,
-	}
-	output := printer.Version("unUI", buildinfo.Info{
-		Version:   "1.2.3",
-		Commit:    "abcdef1234567890",
-		Date:      "2026-07-16T08:20:00Z",
-		Dirty:     true,
-		GoVersion: "go1.25.8",
-	})
-	for _, expected := range []string{
-		"unUI 1.2.3",
-		"commit abcdef123456 (dirty)",
-		"built 2026-07-16T08:20:00Z",
-		"runtime go1.25.8",
-	} {
-		if !strings.Contains(output, expected) {
-			t.Fatalf("version output is missing %q: %q", expected, output)
-		}
 	}
 }
 

@@ -63,7 +63,7 @@ task build-info
 
 ## Version information
 
-The source code does not contain the current release version. `unui version`
+The source code does not contain the current release version. `unui --version`
 uses Go build information with this precedence:
 
 1. Version, commit, and commit date injected by GoReleaser.
@@ -78,7 +78,7 @@ The JSON output includes the full version, commit, commit date, dirty state, and
 Go toolchain version:
 
 ```sh
-go run ./cmd/unui version --json
+go run ./cmd/unui --version --json
 ```
 
 ## Release preparation

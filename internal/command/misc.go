@@ -130,17 +130,3 @@ func (a *app) completionCommand(root *cobra.Command) *cobra.Command {
 		},
 	}
 }
-
-func (a *app) versionCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version",
-		Short: "Print CLI version",
-		Args:  noArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return a.printer().Success(
-				a.buildInfo,
-				a.printer().Version("unUI", a.buildInfo),
-			)
-		},
-	}
-}

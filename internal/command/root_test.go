@@ -26,11 +26,11 @@ var testBuildInfo = buildinfo.Info{
 	GoVersion: "go1.25.8",
 }
 
-func TestVersionJSONWritesOneEnvelopeAndNoStderr(t *testing.T) {
+func TestVersionFlagJSONWritesOneEnvelopeAndNoStderr(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := execute(
-		[]string{"version", "--json"},
+		[]string{"--version", "--json"},
 		&stdout,
 		&stderr,
 		testBuildInfo,
@@ -172,16 +172,58 @@ func TestCompletionIsHiddenButAvailable(t *testing.T) {
 	}
 }
 
-func TestVersionUsesDetailedHumanOutput(t *testing.T) {
+func TestVersionFlagsPrintCurrentVersion(t *testing.T) {
+	for _, flag := range []string{"-v", "--version"} {
+		t.Run(flag, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := execute(
+				[]string{flag},
+				&stdout,
+				&stderr,
+				testBuildInfo,
+			)
+			if exitCode != 0 {
+				t.Fatalf("unexpected exit code: %d", exitCode)
+			}
+			if stderr.Len() != 0 {
+				t.Fatalf("stderr must be empty: %q", stderr.String())
+			}
+			if stdout.String() != "unUI 0.1.0\n" {
+				t.Fatalf("unexpected version output: %q", stdout.String())
+			}
+		})
+	}
+}
+
+func TestVersionSubcommandIsNotAvailable(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	info := testBuildInfo
-	info.Dirty = true
 	exitCode := execute(
 		[]string{"version", "--no-color"},
 		&stdout,
 		&stderr,
-		info,
+		testBuildInfo,
+	)
+	if exitCode == 0 {
+		t.Fatal("expected a non-zero exit code")
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("stdout must be empty: %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "Unknown command") {
+		t.Fatalf("unexpected error:\n%s", stderr.String())
+	}
+}
+
+func TestHelpDocumentsVersionFlags(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	exitCode := execute(
+		[]string{"--help", "--no-color"},
+		&stdout,
+		&stderr,
+		testBuildInfo,
 	)
 	if exitCode != 0 {
 		t.Fatalf("unexpected exit code: %d", exitCode)
@@ -189,15 +231,8 @@ func TestVersionUsesDetailedHumanOutput(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr must be empty: %q", stderr.String())
 	}
-	for _, expected := range []string{
-		"unUI 0.1.0",
-		"commit abcdef123456 (dirty)",
-		"built 2026-07-16T08:20:00Z",
-		"runtime go1.25.8",
-	} {
-		if !strings.Contains(stdout.String(), expected) {
-			t.Fatalf("version output is missing %q:\n%s", expected, stdout.String())
-		}
+	if !strings.Contains(stdout.String(), "-v, --version") {
+		t.Fatalf("help is missing version flags:\n%s", stdout.String())
 	}
 }
 
@@ -227,7 +262,7 @@ func TestTimeoutOptionIsNotAvailable(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := Execute(
-		[]string{"version", "--timeout", "1m", "--no-color"},
+		[]string{"--version", "--timeout", "1m", "--no-color"},
 		&stdout,
 		&stderr,
 	)
@@ -353,7 +388,7 @@ func TestJSONFalseKeepsHumanOutput(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := Execute(
-		[]string{"version", "--json=false", "--no-color"},
+		[]string{"--version", "--json=false", "--no-color"},
 		&stdout,
 		&stderr,
 	)
@@ -375,7 +410,7 @@ func TestNoColorEnvironmentDisablesForcedColor(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	exitCode := Execute([]string{"version"}, &stdout, &stderr)
+	exitCode := Execute([]string{"--help"}, &stdout, &stderr)
 	if exitCode != 0 {
 		t.Fatalf("unexpected exit code: %d", exitCode)
 	}

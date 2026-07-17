@@ -41,6 +41,7 @@ type app struct {
 	registry       string
 	registrySource string
 	removeInstall  func(installation.Info) error
+	showVersion    bool
 	stderr         io.Writer
 	stdout         io.Writer
 	verbose        bool
@@ -137,6 +138,12 @@ func (a *app) rootCommand() *cobra.Command {
 			return a.loadRegistry()
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if a.showVersion {
+				return a.printer().Success(
+					a.buildInfo,
+					"unUI "+a.buildInfo.Version,
+				)
+			}
 			if a.json {
 				return a.printer().Help(cmd, a.buildInfo.Version)
 			}
@@ -153,6 +160,13 @@ func (a *app) rootCommand() *cobra.Command {
 		_ = a.printer().Help(cmd, a.buildInfo.Version)
 	})
 	root.CompletionOptions.DisableDefaultCmd = true
+	root.Flags().BoolVarP(
+		&a.showVersion,
+		"version",
+		"v",
+		false,
+		"print CLI version",
+	)
 	root.PersistentFlags().BoolVar(
 		&a.json,
 		"json",
@@ -181,7 +195,6 @@ func (a *app) rootCommand() *cobra.Command {
 		a.uninstallCommand(),
 		a.updateCommand(),
 		a.skillCommand(),
-		a.versionCommand(),
 	)
 	return root
 }
