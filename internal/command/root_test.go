@@ -636,7 +636,7 @@ func TestConfigShowShortensConfigPathUnderUserHomeInHumanMode(t *testing.T) {
 	}
 }
 
-func TestConfigGetRegistryIsRemoved(t *testing.T) {
+func TestConfigGetRegistryWritesOnlyValueInHumanMode(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	t.Setenv("UNUI_CONFIG_PATH", path)
 	if _, err := (cliconfig.Store{FilePath: path}).SetRegistry(
@@ -648,18 +648,18 @@ func TestConfigGetRegistryIsRemoved(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := Execute(
-		[]string{"config", "get", "--registry", "--json"},
+		[]string{"config", "get", "--registry", "--no-color"},
 		&stdout,
 		&stderr,
 	)
-	if exitCode == 0 {
-		t.Fatal("expected config get to be removed")
+	if exitCode != 0 {
+		t.Fatalf("unexpected exit code: %d\n%s", exitCode, stderr.String())
 	}
 	if stderr.Len() != 0 {
-		t.Fatalf("stderr must be empty in JSON mode: %q", stderr.String())
+		t.Fatalf("stderr must be empty: %q", stderr.String())
 	}
-	if strings.Contains(stdout.String(), "http://127.0.0.1:3001") {
-		t.Fatalf("error output exposed registry: %s", stdout.String())
+	if stdout.String() != "http://127.0.0.1:3001\n" {
+		t.Fatalf("unexpected registry output: %q", stdout.String())
 	}
 }
 

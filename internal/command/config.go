@@ -16,6 +16,7 @@ func (a *app) configCommand() *cobra.Command {
 	}
 	config.AddCommand(
 		a.configShowCommand(),
+		a.configGetCommand(),
 		a.configSetCommand(),
 		a.configResetCommand(),
 		a.configPathCommand(),
@@ -48,6 +49,33 @@ func (a *app) configShowCommand() *cobra.Command {
 			)
 		},
 	})
+}
+
+func (a *app) configGetCommand() *cobra.Command {
+	var registry bool
+	command := &cobra.Command{
+		Use:     "get",
+		Short:   "Get a CLI configuration value",
+		Args:    noArgs,
+		Example: `  unui config get --registry`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if !registry {
+				return missingRequiredOptionError("--registry", cmd)
+			}
+			return a.printer().Success(
+				map[string]any{"registry": a.registry},
+				a.registry,
+			)
+		},
+	}
+	command.Flags().BoolVar(
+		&registry,
+		"registry",
+		false,
+		"get the effective registry",
+	)
+	command.Flags().SortFlags = false
+	return registryCommand(command)
 }
 
 func (a *app) configSetCommand() *cobra.Command {
