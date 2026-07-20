@@ -37,13 +37,28 @@ Use `go run` to execute the CLI directly from source:
 go run ./cmd/unui --help
 ```
 
-To test against a local unUI API, pass its URL when logging in:
+To test against a local unUI API, configure it before logging in:
 
 ```sh
-go run ./cmd/unui auth login --registry http://127.0.0.1:3001
+go run ./cmd/unui config set --registry http://127.0.0.1:3001
+go run ./cmd/unui auth login
 ```
 
-The selected registry is saved for subsequent commands.
+The selected API environment is saved for subsequent commands. Restore the
+production API when local testing is complete:
+
+```sh
+go run ./cmd/unui config reset --registry
+```
+
+Build and safely link the local binary into `~/.local/bin` with:
+
+```sh
+task dev-bin
+```
+
+The task refuses to replace an existing file or unrelated link. Remove only
+the link created for this checkout with `task dev-bin-remove`.
 
 ## Deployment
 
