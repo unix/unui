@@ -20,6 +20,11 @@ func TestBundleContainsValidSkill(t *testing.T) {
 		"name: unui",
 		"description:",
 		"unui ask",
+		"Do not inspect or collect project contents",
+		"desired page content and approximate structure",
+		"elements it should include and their rough functions",
+		"Longer, relevant prompts",
+		"Never send project contents to unUI",
 	} {
 		if !strings.Contains(content, expected) {
 			t.Fatalf("SKILL.md is missing %q:\n%s", expected, content)
