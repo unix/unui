@@ -6,6 +6,8 @@ between version tags.
 
 ## Unreleased
 
+## v0.3.0 - 2026-07-20
+
 - Avoid changing persisted configuration, credential, and lock file modes
   during normal CLI access.
 - Isolate saved device credentials by configured API environment and migrate
