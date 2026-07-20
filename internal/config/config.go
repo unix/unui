@@ -77,9 +77,6 @@ func (s Store) SetRegistry(value string) (string, error) {
 	if err := os.WriteFile(path, payload, 0o600); err != nil {
 		return "", err
 	}
-	if err := os.Chmod(path, 0o600); err != nil {
-		return "", err
-	}
 	return registry, nil
 }
 

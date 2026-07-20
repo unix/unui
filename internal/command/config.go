@@ -12,11 +12,10 @@ func (a *app) configCommand() *cobra.Command {
 	config := &cobra.Command{
 		Use:   "config [command]",
 		Short: "Manage CLI configuration",
-		Long:  "Inspect and manage the registry used for unUI API requests.",
+		Long:  "Inspect and manage the local unUI CLI configuration.",
 	}
 	config.AddCommand(
 		a.configShowCommand(),
-		a.configGetCommand(),
 		a.configSetCommand(),
 		a.configResetCommand(),
 		a.configPathCommand(),
@@ -39,12 +38,10 @@ func (a *app) configShowCommand() *cobra.Command {
 			return a.printer().Success(
 				map[string]any{
 					"configFile": path,
-					"registry":   a.registry,
 					"source":     a.registrySource,
 				},
 				fmt.Sprintf(
-					"%s\n%s\n%s",
-					a.printer().Info("Registry", a.registry),
+					"%s\n%s",
 					a.printer().Info("Source", a.registrySource),
 					a.printer().Info("Config file", home.DisplayPath(path)),
 				),
@@ -53,41 +50,13 @@ func (a *app) configShowCommand() *cobra.Command {
 	})
 }
 
-func (a *app) configGetCommand() *cobra.Command {
-	var registry bool
-	command := &cobra.Command{
-		Use:     "get",
-		Short:   "Get a CLI configuration value",
-		Args:    noArgs,
-		Example: `  unui config get --registry`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !registry {
-				return missingRequiredOptionError("--registry", cmd)
-			}
-			return a.printer().Success(
-				map[string]any{"registry": a.registry},
-				a.registry,
-			)
-		},
-	}
-	command.Flags().BoolVar(
-		&registry,
-		"registry",
-		false,
-		"get the effective registry",
-	)
-	command.Flags().SortFlags = false
-	return registryCommand(command)
-}
-
 func (a *app) configSetCommand() *cobra.Command {
 	var registry string
 	command := &cobra.Command{
-		Use:   "set",
-		Short: "Set a CLI configuration value",
-		Args:  noArgs,
-		Example: `  unui config set --registry https://api.unui.cc
-  unui config set --registry http://127.0.0.1:3001`,
+		Use:     "set",
+		Short:   "Set a CLI configuration value",
+		Args:    noArgs,
+		Example: `  unui config set --registry <url>`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !cmd.Flags().Changed("registry") {
 				return missingRequiredOptionError("--registry", cmd)
@@ -96,8 +65,8 @@ func (a *app) configSetCommand() *cobra.Command {
 				return err
 			}
 			return a.printer().Success(
-				map[string]any{"registry": a.registry},
-				a.printer().Done("Registry", a.registry),
+				map[string]any{"configured": true},
+				a.printer().Done("API environment", "Configured"),
 			)
 		},
 	}
@@ -129,10 +98,9 @@ func (a *app) configResetCommand() *cobra.Command {
 			a.registrySource = "default"
 			return a.printer().Success(
 				map[string]any{
-					"registry": a.registry,
-					"reset":    true,
+					"reset": true,
 				},
-				a.printer().Done("Registry", a.registry),
+				a.printer().Done("API environment", "Reset"),
 			)
 		},
 	}

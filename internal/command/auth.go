@@ -1,6 +1,7 @@
 package command
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -8,11 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 	"github.com/unix/unui/internal/api"
 	"github.com/unix/unui/internal/browser"
-	cliconfig "github.com/unix/unui/internal/config"
 	"github.com/unix/unui/internal/message"
 	"github.com/unix/unui/internal/proof"
 	"github.com/unix/unui/internal/store"
@@ -36,50 +35,18 @@ func (a *app) authCommand() *cobra.Command {
 }
 
 func (a *app) loginCommand() *cobra.Command {
-	var registry string
 	command := &cobra.Command{
-		Use:   "login",
-		Short: "Authorize this CLI device in the browser",
-		Args:  noArgs,
-		Example: `  unui auth login
-  unui auth login --registry http://127.0.0.1:3001`,
+		Use:     "login",
+		Short:   "Authorize this CLI device in the browser",
+		Args:    noArgs,
+		Example: `  unui auth login`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if cmd.Flags().Changed("registry") {
-				if err := a.setRegistry(registry); err != nil {
-					return err
-				}
-			}
 			ctx, cancel := a.authorizationContext(cmd.Context())
 			defer cancel()
-			credentials, err := store.Load()
-			if err != nil && !errors.Is(err, store.ErrNotLoggedIn) {
-				return credentialStoreError(err)
+			credentials, err := loadOrCreateDeviceCredentials(ctx)
+			if err != nil {
+				return err
 			}
-			if errors.Is(err, store.ErrNotLoggedIn) {
-				device, deviceErr := proof.NewDevice()
-				if deviceErr != nil {
-					return internalError("DEVICE_KEY_FAILED", deviceErr)
-				}
-				hostname, hostnameErr := os.Hostname()
-				if hostnameErr != nil || strings.TrimSpace(hostname) == "" {
-					hostname = "unUI CLI"
-				}
-				if len(hostname) > 120 {
-					hostname = hostname[:120]
-				}
-				credentials = store.Credentials{
-					DeviceID:   device.DeviceID,
-					DeviceName: hostname,
-					Platform:   runtime.GOOS + "/" + runtime.GOARCH,
-					PrivateKey: device.PrivateKey,
-					PublicKey:  device.PublicKey,
-					Registry:   a.registry,
-				}
-				if saveErr := store.Save(credentials); saveErr != nil {
-					return credentialStoreError(saveErr)
-				}
-			}
-			bindCredentialsToRegistry(&credentials, a.registry)
 
 			verifier, err := proof.RandomVerifier()
 			if err != nil {
@@ -181,34 +148,81 @@ func (a *app) loginCommand() *cobra.Command {
 			if err != nil {
 				return apiCommandError(err)
 			}
-			credentials.PersonalToken = exchanged.PersonalToken
-			credentials.PersonalTokenExpires = exchanged.ExpiresAt.Format(
-				time.RFC3339Nano,
-			)
-			if err := a.refreshAccess(ctx, &credentials); err != nil {
+			scoped := scopedCredentials{
+				Credentials: credentials,
+				RegistryCredentials: store.RegistryCredentials{
+					PersonalToken: exchanged.PersonalToken,
+					PersonalTokenExpires: exchanged.ExpiresAt.Format(
+						time.RFC3339Nano,
+					),
+				},
+			}
+			if err := a.refreshAccess(ctx, &scoped); err != nil {
 				return err
 			}
-			if err := store.Save(credentials); err != nil {
-				return credentialStoreError(err)
+			if err := updateCredentials(ctx, func(saved *store.Credentials) error {
+				if saved.DeviceID != credentials.DeviceID {
+					return errors.New("device credentials changed during authorization")
+				}
+				return saved.SetRegistry(a.registry, scoped.RegistryCredentials)
+			}); err != nil {
+				return err
 			}
 			return a.printer().Success(
 				map[string]any{
-					"deviceId":               credentials.DeviceID,
-					"deviceName":             credentials.DeviceName,
-					"personalTokenExpiresAt": credentials.PersonalTokenExpires,
+					"deviceId":               scoped.DeviceID,
+					"deviceName":             scoped.DeviceName,
+					"personalTokenExpiresAt": scoped.PersonalTokenExpires,
 				},
-				a.printer().Done("Authorized", credentials.DeviceName),
+				a.printer().Done("Authorized", scoped.DeviceName),
 			)
 		},
 	}
-	command.Flags().StringVar(
-		&registry,
-		"registry",
-		cliconfig.DefaultRegistry,
-		"registry URL (the configured value is used when omitted)",
-	)
 	command.Flags().SortFlags = false
-	return registryOverrideCommand(registryCommand(command))
+	return registryCommand(command)
+}
+
+func loadOrCreateDeviceCredentials(ctx context.Context) (store.Credentials, error) {
+	var credentials store.Credentials
+	err := withCredentialLock(ctx, func() error {
+		loaded, err := store.Load()
+		if err == nil &&
+			loaded.DeviceID != "" &&
+			loaded.PrivateKey != "" &&
+			loaded.PublicKey != "" {
+			credentials = loaded
+			return nil
+		}
+		if err != nil && !errors.Is(err, store.ErrNotLoggedIn) {
+			return credentialStoreError(err)
+		}
+		if err == nil && len(loaded.Registries) > 0 {
+			return credentialStoreError(errors.New("saved device credentials are incomplete"))
+		}
+		device, err := proof.NewDevice()
+		if err != nil {
+			return internalError("DEVICE_KEY_FAILED", err)
+		}
+		hostname, hostnameErr := os.Hostname()
+		if hostnameErr != nil || strings.TrimSpace(hostname) == "" {
+			hostname = "unUI CLI"
+		}
+		if len(hostname) > 120 {
+			hostname = hostname[:120]
+		}
+		credentials = store.Credentials{
+			DeviceID:   device.DeviceID,
+			DeviceName: hostname,
+			Platform:   runtime.GOOS + "/" + runtime.GOARCH,
+			PrivateKey: device.PrivateKey,
+			PublicKey:  device.PublicKey,
+		}
+		if err := store.Save(credentials); err != nil {
+			return credentialStoreError(err)
+		}
+		return nil
+	})
+	return credentials, err
 }
 
 func (a *app) showAuthCommand() *cobra.Command {
@@ -286,7 +300,7 @@ func (a *app) logoutCommand() *cobra.Command {
 		Example: `  unui auth logout
   unui auth logout --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			credentials, err := store.Load()
+			saved, err := store.Load()
 			if errors.Is(err, store.ErrNotLoggedIn) {
 				return newCommandError(
 					"NOT_LOGGED_IN",
@@ -297,17 +311,28 @@ func (a *app) logoutCommand() *cobra.Command {
 			if err != nil {
 				return credentialStoreError(err)
 			}
-			if credentialsRegistry(credentials) != a.registry {
-				return registryAuthenticationError(a.registry)
+			registryCredentials, err := saved.ForRegistry(a.registry)
+			if err != nil {
+				return credentialStoreError(err)
+			}
+			if registryCredentials.Empty() {
+				return newCommandError(
+					"NOT_LOGGED_IN",
+					message.NothingToLogOut(),
+					nil,
+				)
+			}
+			credentials := scopedCredentials{
+				Credentials:         saved,
+				RegistryCredentials: registryCredentials,
 			}
 			if !a.json && !yes {
-				confirmed := false
-				if err := huh.NewConfirm().
-					Title("Revoke this CLI device?").
-					Affirmative("Revoke").
-					Negative("Cancel").
-					Value(&confirmed).
-					Run(); err != nil {
+				confirmed, err := promptForConfirmation(
+					cmd.InOrStdin(),
+					cmd.ErrOrStderr(),
+					"Revoke this CLI device authorization?",
+				)
+				if err != nil {
 					return internalError("PROMPT_FAILED", err)
 				}
 				if !confirmed {
@@ -342,18 +367,26 @@ func (a *app) logoutCommand() *cobra.Command {
 				)
 				remoteRevoked = logoutErr == nil
 				if logoutErr != nil {
-					remoteRevocationIssue = errorSummary(
+					remoteRevocationIssue = a.errorSummary(
 						apiCommandError(logoutErr),
 					)
 				}
 			}
 			if proofErr != nil && credentials.PersonalToken != "" {
-				remoteRevocationIssue = errorSummary(
+				remoteRevocationIssue = a.errorSummary(
 					internalError("DEVICE_PROOF_FAILED", proofErr),
 				)
 			}
-			if deleteErr := store.Delete(); deleteErr != nil {
-				return credentialStoreError(deleteErr)
+			if err := updateCredentials(ctx, func(current *store.Credentials) error {
+				if err := current.SetRegistry(a.registry, store.RegistryCredentials{}); err != nil {
+					return err
+				}
+				if len(current.Registries) == 0 {
+					*current = store.Credentials{}
+				}
+				return nil
+			}); err != nil {
+				return err
 			}
 			human := a.printer().Done("Logged out", credentials.DeviceName)
 			if remoteRevocationIssue != nil {

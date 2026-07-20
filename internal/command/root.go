@@ -27,7 +27,6 @@ const (
 	cliAPIPath                 = "/v1/cli"
 	authorizationTimeout       = 5 * time.Minute
 	commandTimeout             = 30 * time.Second
-	registryOverrideAnnotation = "unui/registry-override"
 	requiresRegistryAnnotation = "unui/requires-registry"
 )
 
@@ -45,6 +44,11 @@ type app struct {
 	stderr         io.Writer
 	stdout         io.Writer
 	verbose        bool
+}
+
+type scopedCredentials struct {
+	store.Credentials
+	store.RegistryCredentials
 }
 
 func Execute(args []string, stdout, stderr io.Writer) int {
@@ -128,12 +132,6 @@ func (a *app) rootCommand() *cobra.Command {
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			if cmd.Annotations[requiresRegistryAnnotation] != "true" {
 				return nil
-			}
-			if cmd.Annotations[registryOverrideAnnotation] == "true" {
-				flag := cmd.Flags().Lookup("registry")
-				if flag != nil && flag.Changed {
-					return nil
-				}
 			}
 			return a.loadRegistry()
 		},
@@ -229,7 +227,7 @@ func (a *app) loadRegistry() error {
 func (a *app) setRegistry(value string) error {
 	registry, err := a.configStore.SetRegistry(value)
 	if err != nil {
-		return registryCommandError(value, err)
+		return registryCommandError(err)
 	}
 	a.registry = registry
 	a.registrySource = "configFile"
@@ -248,44 +246,44 @@ func (a *app) authorizationContext(
 
 func (a *app) credentialsWithAccess(
 	ctx context.Context,
-) (store.Credentials, error) {
-	var credentials store.Credentials
-	err := withCredentialLock(ctx, func() error {
-		loaded, loadErr := a.credentialsForRegistry()
-		if loadErr != nil {
-			return loadErr
-		}
-		refreshed, accessErr := a.ensureAccess(ctx, &loaded)
-		if accessErr != nil {
-			return accessErr
-		}
-		if refreshed {
-			if saveErr := store.Save(loaded); saveErr != nil {
-				return credentialStoreError(saveErr)
-			}
-		}
-		credentials = loaded
-		return nil
-	})
-	return credentials, err
+) (scopedCredentials, error) {
+	credentials, err := a.credentialsForRegistry()
+	if err != nil {
+		return scopedCredentials{}, err
+	}
+	if accessTokenReady(credentials.RegistryCredentials) {
+		return credentials, nil
+	}
+	return a.credentialsAfterUnauthorized(ctx, "")
 }
 
-func (a *app) credentialsForRegistry() (store.Credentials, error) {
+func (a *app) credentialsForRegistry() (scopedCredentials, error) {
 	credentials, err := store.Load()
 	if errors.Is(err, store.ErrNotLoggedIn) {
-		return store.Credentials{}, newCommandError(
+		return scopedCredentials{}, newCommandError(
 			"NOT_LOGGED_IN",
 			message.NotLoggedIn(),
 			nil,
 		)
 	}
 	if err != nil {
-		return store.Credentials{}, credentialStoreError(err)
+		return scopedCredentials{}, credentialStoreError(err)
 	}
-	if credentialsRegistry(credentials) != a.registry {
-		return store.Credentials{}, registryAuthenticationError(a.registry)
+	registryCredentials, err := credentials.ForRegistry(a.registry)
+	if err != nil {
+		return scopedCredentials{}, credentialStoreError(err)
 	}
-	return credentials, nil
+	if registryCredentials.Empty() {
+		return scopedCredentials{}, newCommandError(
+			"NOT_LOGGED_IN",
+			message.NotLoggedIn(),
+			nil,
+		)
+	}
+	return scopedCredentials{
+		Credentials:         credentials,
+		RegistryCredentials: registryCredentials,
+	}, nil
 }
 
 func registryCommand(command *cobra.Command) *cobra.Command {
@@ -296,70 +294,7 @@ func registryCommand(command *cobra.Command) *cobra.Command {
 	return command
 }
 
-func registryOverrideCommand(command *cobra.Command) *cobra.Command {
-	if command.Annotations == nil {
-		command.Annotations = make(map[string]string)
-	}
-	command.Annotations[registryOverrideAnnotation] = "true"
-	return command
-}
-
-func credentialsRegistry(credentials store.Credentials) string {
-	if credentials.Registry != "" {
-		registry, err := cliconfig.NormalizeRegistry(credentials.Registry)
-		if err == nil {
-			return registry
-		}
-		return ""
-	}
-	if credentials.APIURL != "" {
-		apiURL := strings.TrimRight(credentials.APIURL, "/")
-		registry, err := cliconfig.NormalizeRegistry(
-			strings.TrimSuffix(apiURL, cliAPIPath),
-		)
-		if err == nil {
-			return registry
-		}
-		return ""
-	}
-	return cliconfig.DefaultRegistry
-}
-
-func bindCredentialsToRegistry(
-	credentials *store.Credentials,
-	registry string,
-) {
-	if credentialsRegistry(*credentials) != registry {
-		credentials.AccessToken = ""
-		credentials.AccessTokenExpiresAt = ""
-		credentials.PersonalToken = ""
-		credentials.PersonalTokenExpires = ""
-	}
-	credentials.APIURL = ""
-	credentials.Registry = registry
-}
-
-func (a *app) ensureAccess(
-	ctx context.Context,
-	credentials *store.Credentials,
-) (bool, error) {
-	if accessTokenReady(*credentials) {
-		return false, nil
-	}
-	if credentials.PersonalToken == "" {
-		return false, newCommandError(
-			"NOT_LOGGED_IN",
-			message.NotLoggedIn(),
-			nil,
-		)
-	}
-	if err := a.refreshAccess(ctx, credentials); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func accessTokenReady(credentials store.Credentials) bool {
+func accessTokenReady(credentials store.RegistryCredentials) bool {
 	if credentials.AccessToken == "" {
 		return false
 	}
@@ -372,7 +307,7 @@ func accessTokenReady(credentials store.Credentials) bool {
 
 func (a *app) refreshAccess(
 	ctx context.Context,
-	credentials *store.Credentials,
+	credentials *scopedCredentials,
 ) error {
 	deviceProof, err := proof.Sign(
 		credentials.PrivateKey,

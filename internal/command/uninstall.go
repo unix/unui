@@ -3,9 +3,9 @@ package command
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
-	"charm.land/huh/v2"
 	"github.com/spf13/cobra"
 	"github.com/unix/unui/internal/home"
 	"github.com/unix/unui/internal/installation"
@@ -34,7 +34,7 @@ func (a *app) uninstallCommand() *cobra.Command {
 		Example: `  unui uninstall
   unui uninstall --yes
   unui uninstall --json`,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			info, err := a.detectInstallation()
 			if errors.Is(err, installation.ErrInvalidReceipt) {
 				return newCommandError(
@@ -52,7 +52,12 @@ func (a *app) uninstallCommand() *cobra.Command {
 			}
 			switch info.Source {
 			case installation.SourceInstallScript:
-				return a.uninstallInstallScript(info, yes)
+				return a.uninstallInstallScript(
+					info,
+					yes,
+					cmd.InOrStdin(),
+					cmd.ErrOrStderr(),
+				)
 			case installation.SourceInstallPowerShell:
 				return a.uninstallInstallPowerShell(info)
 			case installation.SourceNPM:
@@ -76,6 +81,8 @@ func (a *app) uninstallCommand() *cobra.Command {
 func (a *app) uninstallInstallScript(
 	info installation.Info,
 	yes bool,
+	input io.Reader,
+	output io.Writer,
 ) error {
 	result := uninstallResult{
 		Installation:         info,
@@ -86,18 +93,12 @@ func (a *app) uninstallInstallScript(
 		return a.printer().Success(result, "")
 	}
 	if !yes {
-		confirmed := false
 		description := fmt.Sprintf(
-			"%s\nCredentials, configuration, and agent skills will be preserved.",
+			"Uninstall the unUI CLI at %s? Credentials, configuration, and agent skills will be preserved.",
 			home.DisplayPath(info.ExecutablePath),
 		)
-		if err := huh.NewConfirm().
-			Title("Uninstall the unUI CLI?").
-			Description(description).
-			Affirmative("Uninstall").
-			Negative("Cancel").
-			Value(&confirmed).
-			Run(); err != nil {
+		confirmed, err := promptForConfirmation(input, output, description)
+		if err != nil {
 			return internalError("PROMPT_FAILED", err)
 		}
 		if !confirmed {

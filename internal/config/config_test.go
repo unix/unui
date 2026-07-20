@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -50,6 +51,29 @@ func TestStoreSetsAndResetsRegistry(t *testing.T) {
 	}
 	if values.EffectiveRegistry() != DefaultRegistry {
 		t.Fatalf("unexpected reset registry: %q", values.EffectiveRegistry())
+	}
+}
+
+func TestStorePreservesExistingConfigPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not expose POSIX file permissions")
+	}
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(path, []byte("{}\n"), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatalf("set config permissions: %v", err)
+	}
+	if _, err := (Store{FilePath: path}).SetRegistry(DefaultRegistry); err != nil {
+		t.Fatalf("set registry: %v", err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat config: %v", err)
+	}
+	if info.Mode().Perm() != 0o644 {
+		t.Fatalf("unexpected changed permissions: %o", info.Mode().Perm())
 	}
 }
 

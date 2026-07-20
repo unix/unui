@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -15,16 +16,19 @@ func TestStoreSavesLoadsAndDeletesCredentials(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "unui", "credentials.json")
 	credentialStore := Store{FilePath: path}
 	expected := Credentials{
-		AccessToken:          "access-token",
-		AccessTokenExpiresAt: "2099-01-01T00:00:00Z",
-		DeviceID:             "device-id",
-		DeviceName:           "device-name",
-		Platform:             "test/test",
-		PrivateKey:           "private-key",
-		PublicKey:            "public-key",
-		PersonalToken:        "personal-token",
-		PersonalTokenExpires: "2099-01-01T00:00:00Z",
-		Registry:             "https://api.unui.cc",
+		DeviceID:   "device-id",
+		DeviceName: "device-name",
+		Platform:   "test/test",
+		PrivateKey: "private-key",
+		PublicKey:  "public-key",
+		Registries: map[string]RegistryCredentials{
+			"https://api.unui.cc": {
+				AccessToken:          "access-token",
+				AccessTokenExpiresAt: "2099-01-01T00:00:00Z",
+				PersonalToken:        "personal-token",
+				PersonalTokenExpires: "2099-01-01T00:00:00Z",
+			},
+		},
 	}
 
 	if err := credentialStore.Save(expected); err != nil {
@@ -99,7 +103,7 @@ func TestStoreCredentialsPathEnvironmentOverridesUnuiHome(t *testing.T) {
 	}
 }
 
-func TestStoreRepairsCredentialsPermissionsOnLoad(t *testing.T) {
+func TestStorePreservesCredentialsPermissionsOnLoad(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows does not expose POSIX file permissions")
 	}
@@ -118,8 +122,75 @@ func TestStoreRepairsCredentialsPermissionsOnLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat credentials: %v", err)
 	}
-	if info.Mode().Perm() != 0o600 {
-		t.Fatalf("unexpected repaired permissions: %o", info.Mode().Perm())
+	if info.Mode().Perm() != 0o644 {
+		t.Fatalf("unexpected changed permissions: %o", info.Mode().Perm())
+	}
+}
+
+func TestStoreMigratesFlatCredentialsIntoRegistryNamespace(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "credentials.json")
+	payload := []byte(`{
+  "accessToken": "access-token",
+  "accessTokenExpiresAt": "2099-01-01T00:00:00Z",
+  "apiUrl": "https://API.UNUI.CC/v1/cli/",
+  "deviceId": "device-id",
+  "deviceName": "device-name",
+  "personalToken": "personal-token",
+  "personalTokenExpiresAt": "2099-01-01T00:00:00Z",
+  "platform": "test/test",
+  "privateKey": "private-key",
+  "publicKey": "public-key"
+}`)
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatalf("write legacy credentials: %v", err)
+	}
+	credentials, err := (Store{FilePath: path}).Load()
+	if err != nil {
+		t.Fatalf("load legacy credentials: %v", err)
+	}
+	registryCredentials, err := credentials.ForRegistry("https://api.unui.cc")
+	if err != nil {
+		t.Fatalf("select migrated credentials: %v", err)
+	}
+	if registryCredentials.PersonalToken != "personal-token" ||
+		registryCredentials.AccessToken != "access-token" {
+		t.Fatalf("unexpected migrated credentials: %#v", registryCredentials)
+	}
+	if credentials.LegacyRegistry != "" || credentials.LegacyAPIURL != "" {
+		t.Fatalf("legacy fields were not cleared: %#v", credentials)
+	}
+	credentialStore := Store{FilePath: path}
+	if err := credentialStore.Save(credentials); err != nil {
+		t.Fatalf("save migrated credentials: %v", err)
+	}
+	saved, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read migrated credentials: %v", err)
+	}
+	if strings.Contains(string(saved), `"apiUrl"`) ||
+		strings.Contains(string(saved), `"registry"`) ||
+		!strings.Contains(string(saved), `"registries"`) {
+		t.Fatalf("unexpected migrated payload: %s", saved)
+	}
+}
+
+func TestStoreNormalizesRegistryNamespaces(t *testing.T) {
+	credentialStore := Store{FilePath: filepath.Join(t.TempDir(), "credentials.json")}
+	if err := credentialStore.Save(Credentials{
+		DeviceID: "device-id",
+		Registries: map[string]RegistryCredentials{
+			"https://API.UNUI.CC/": {PersonalToken: "token"},
+		},
+	}); err != nil {
+		t.Fatalf("save credentials: %v", err)
+	}
+	credentials, err := credentialStore.Load()
+	if err != nil {
+		t.Fatalf("load credentials: %v", err)
+	}
+	if len(credentials.Registries) != 1 ||
+		credentials.Registries["https://api.unui.cc"].PersonalToken != "token" {
+		t.Fatalf("unexpected normalized credentials: %#v", credentials)
 	}
 }
 
@@ -164,5 +235,33 @@ func TestStoreCredentialLockSerializesAccess(t *testing.T) {
 		t.Fatalf("acquire second lock: %v", lockErr)
 	case <-ctx.Done():
 		t.Fatalf("second lock was not acquired: %v", ctx.Err())
+	}
+}
+
+func TestCredentialLockPreservesExistingPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not expose POSIX file permissions")
+	}
+	path := filepath.Join(t.TempDir(), "credentials.json")
+	lockPath := path + ".lock"
+	if err := os.WriteFile(lockPath, nil, 0o644); err != nil {
+		t.Fatalf("write lock file: %v", err)
+	}
+	if err := os.Chmod(lockPath, 0o644); err != nil {
+		t.Fatalf("set lock permissions: %v", err)
+	}
+	lock, err := (Store{FilePath: path}).Lock(context.Background())
+	if err != nil {
+		t.Fatalf("acquire lock: %v", err)
+	}
+	if err := lock.Unlock(); err != nil {
+		t.Fatalf("release lock: %v", err)
+	}
+	info, err := os.Stat(lockPath)
+	if err != nil {
+		t.Fatalf("stat lock file: %v", err)
+	}
+	if info.Mode().Perm() != 0o644 {
+		t.Fatalf("unexpected changed permissions: %o", info.Mode().Perm())
 	}
 }

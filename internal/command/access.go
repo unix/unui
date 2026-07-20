@@ -29,14 +29,14 @@ func withCredentialLock(
 func (a *app) credentialsAfterUnauthorized(
 	ctx context.Context,
 	rejectedAccessToken string,
-) (store.Credentials, error) {
-	var credentials store.Credentials
+) (scopedCredentials, error) {
+	var credentials scopedCredentials
 	err := withCredentialLock(ctx, func() error {
 		loaded, loadErr := a.credentialsForRegistry()
 		if loadErr != nil {
 			return loadErr
 		}
-		if loaded.AccessToken != rejectedAccessToken && accessTokenReady(loaded) {
+		if loaded.AccessToken != rejectedAccessToken && accessTokenReady(loaded.RegistryCredentials) {
 			credentials = loaded
 			return nil
 		}
@@ -50,7 +50,10 @@ func (a *app) credentialsAfterUnauthorized(
 		if refreshErr := a.refreshAccess(ctx, &loaded); refreshErr != nil {
 			return refreshErr
 		}
-		if saveErr := store.Save(loaded); saveErr != nil {
+		if setErr := loaded.Credentials.SetRegistry(a.registry, loaded.RegistryCredentials); setErr != nil {
+			return credentialStoreError(setErr)
+		}
+		if saveErr := store.Save(loaded.Credentials); saveErr != nil {
 			return credentialStoreError(saveErr)
 		}
 		credentials = loaded
@@ -59,12 +62,33 @@ func (a *app) credentialsAfterUnauthorized(
 	return credentials, err
 }
 
+func updateCredentials(
+	ctx context.Context,
+	update func(*store.Credentials) error,
+) error {
+	return withCredentialLock(ctx, func() error {
+		credentials, err := store.Load()
+		if errors.Is(err, store.ErrNotLoggedIn) {
+			credentials = store.Credentials{}
+		} else if err != nil {
+			return credentialStoreError(err)
+		}
+		if err := update(&credentials); err != nil {
+			return credentialStoreError(err)
+		}
+		if err := store.Save(credentials); err != nil {
+			return credentialStoreError(err)
+		}
+		return nil
+	})
+}
+
 func accessRequest[T any](
 	a *app,
 	ctx context.Context,
-	credentials store.Credentials,
+	credentials scopedCredentials,
 	request func(string) (T, error),
-) (T, store.Credentials, error) {
+) (T, scopedCredentials, error) {
 	result, err := request(credentials.AccessToken)
 	if err == nil {
 		return result, credentials, nil

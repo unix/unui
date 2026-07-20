@@ -146,15 +146,18 @@ func TestDoctorVerifiesCachedAccessTokenWithAPI(t *testing.T) {
 		t.Fatalf("set registry: %v", err)
 	}
 	if err := store.Save(store.Credentials{
-		AccessToken:          "revoked-access-token",
-		AccessTokenExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339Nano),
-		DeviceID:             device.DeviceID,
-		DeviceName:           "Design Mac",
-		PersonalToken:        "revoked-personal-token",
-		Platform:             "darwin/arm64",
-		PrivateKey:           device.PrivateKey,
-		PublicKey:            device.PublicKey,
-		Registry:             server.URL,
+		DeviceID:   device.DeviceID,
+		DeviceName: "Design Mac",
+		Platform:   "darwin/arm64",
+		PrivateKey: device.PrivateKey,
+		PublicKey:  device.PublicKey,
+		Registries: map[string]store.RegistryCredentials{
+			server.URL: {
+				AccessToken:          "revoked-access-token",
+				AccessTokenExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339Nano),
+				PersonalToken:        "revoked-personal-token",
+			},
+		},
 	}); err != nil {
 		t.Fatalf("save credentials: %v", err)
 	}
@@ -170,6 +173,9 @@ func TestDoctorVerifiesCachedAccessTokenWithAPI(t *testing.T) {
 	}
 	if !refreshRequested {
 		t.Fatal("doctor must try to refresh a rejected access token")
+	}
+	if strings.Contains(stdout.String(), server.URL) || strings.Contains(stderr.String(), server.URL) {
+		t.Fatalf("doctor output exposed registry: stdout=%s stderr=%s", stdout.String(), stderr.String())
 	}
 
 	var envelope struct {
@@ -257,13 +263,14 @@ func TestLogoutStillDeletesLocalCredentialsWhenCLIUpdateIsRequired(
 		t.Fatalf("set registry: %v", err)
 	}
 	if err := store.Save(store.Credentials{
-		DeviceID:      device.DeviceID,
-		DeviceName:    "Design Mac",
-		PersonalToken: "personal-token",
-		Platform:      "darwin/arm64",
-		PrivateKey:    device.PrivateKey,
-		PublicKey:     device.PublicKey,
-		Registry:      server.URL,
+		DeviceID:   device.DeviceID,
+		DeviceName: "Design Mac",
+		Platform:   "darwin/arm64",
+		PrivateKey: device.PrivateKey,
+		PublicKey:  device.PublicKey,
+		Registries: map[string]store.RegistryCredentials{
+			server.URL: {PersonalToken: "personal-token"},
+		},
 	}); err != nil {
 		t.Fatalf("save credentials: %v", err)
 	}
@@ -299,6 +306,71 @@ func TestLogoutStillDeletesLocalCredentialsWhenCLIUpdateIsRequired(
 		envelope.Data.RemoteRevoked ||
 		envelope.Data.RemoteRevocationIssue["code"] != "CLI_UPDATE_REQUIRED" {
 		t.Fatalf("unexpected logout result: %#v", envelope)
+	}
+}
+
+func TestLogoutRemovesOnlyCurrentRegistryCredentials(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(
+		func(writer http.ResponseWriter, request *http.Request) {
+			if request.Method != http.MethodDelete ||
+				request.URL.Path != "/v1/cli/auth/personal-token" {
+				http.NotFound(writer, request)
+				return
+			}
+			writer.WriteHeader(http.StatusNoContent)
+		},
+	))
+	defer server.Close()
+	device, err := proof.NewDevice()
+	if err != nil {
+		t.Fatalf("create test device: %v", err)
+	}
+	directory := t.TempDir()
+	t.Setenv("UNUI_CONFIG_PATH", filepath.Join(directory, "config.json"))
+	t.Setenv("UNUI_CREDENTIALS_PATH", filepath.Join(directory, "credentials.json"))
+	if _, err := cliconfig.DefaultStore().SetRegistry(server.URL); err != nil {
+		t.Fatalf("set registry: %v", err)
+	}
+	if err := store.Save(store.Credentials{
+		DeviceID:   device.DeviceID,
+		DeviceName: "Design Mac",
+		Platform:   "darwin/arm64",
+		PrivateKey: device.PrivateKey,
+		PublicKey:  device.PublicKey,
+		Registries: map[string]store.RegistryCredentials{
+			server.URL:                {PersonalToken: "current-token"},
+			cliconfig.DefaultRegistry: {PersonalToken: "production-token"},
+		},
+	}); err != nil {
+		t.Fatalf("save credentials: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if exitCode := Execute(
+		[]string{"auth", "logout", "--yes", "--json"},
+		&stdout,
+		&stderr,
+	); exitCode != 0 {
+		t.Fatalf("unexpected exit code: %d\n%s", exitCode, stdout.String())
+	}
+	if strings.Contains(stdout.String(), server.URL) || strings.Contains(stderr.String(), server.URL) {
+		t.Fatalf("logout output exposed registry: stdout=%s stderr=%s", stdout.String(), stderr.String())
+	}
+	saved, err := store.Load()
+	if err != nil {
+		t.Fatalf("load credentials: %v", err)
+	}
+	current, err := saved.ForRegistry(server.URL)
+	if err != nil {
+		t.Fatalf("select current credentials: %v", err)
+	}
+	production, err := saved.ForRegistry(cliconfig.DefaultRegistry)
+	if err != nil {
+		t.Fatalf("select production credentials: %v", err)
+	}
+	if !current.Empty() || production.PersonalToken != "production-token" {
+		t.Fatalf("unexpected credentials after logout: %#v", saved)
 	}
 }
 
@@ -352,12 +424,15 @@ func prepareAuthShowTest(t *testing.T, registry string) {
 		t.Fatalf("set registry: %v", err)
 	}
 	if err := store.Save(store.Credentials{
-		AccessToken:          "access-token",
-		AccessTokenExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339Nano),
-		DeviceID:             "device-123",
-		DeviceName:           "Design Mac",
-		Platform:             "darwin/arm64",
-		Registry:             registry,
+		DeviceID:   "device-123",
+		DeviceName: "Design Mac",
+		Platform:   "darwin/arm64",
+		Registries: map[string]store.RegistryCredentials{
+			registry: {
+				AccessToken:          "access-token",
+				AccessTokenExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339Nano),
+			},
+		},
 	}); err != nil {
 		t.Fatalf("save credentials: %v", err)
 	}

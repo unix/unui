@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -81,8 +83,12 @@ func TestAskRefreshesRejectedAccessTokenAndReturnsOneJSONEnvelope(t *testing.T) 
 	if err != nil {
 		t.Fatalf("load refreshed credentials: %v", err)
 	}
-	if credentials.AccessToken != "renewed-access-token" {
-		t.Fatalf("unexpected saved access token: %q", credentials.AccessToken)
+	registryCredentials, err := credentials.ForRegistry(server.URL)
+	if err != nil {
+		t.Fatalf("select refreshed credentials: %v", err)
+	}
+	if registryCredentials.AccessToken != "renewed-access-token" {
+		t.Fatalf("unexpected saved access token: %q", registryCredentials.AccessToken)
 	}
 }
 
@@ -239,6 +245,112 @@ func TestConcurrentAskSharesOneRefreshAfterUnauthorized(t *testing.T) {
 	}
 }
 
+func TestValidAccessTokenDoesNotAcquireCredentialLock(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(
+		func(writer http.ResponseWriter, request *http.Request) {
+			if request.URL.Path != "/v1/cli/ask" {
+				http.NotFound(writer, request)
+				return
+			}
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = writer.Write([]byte(`{"references":[],"rules":[]}`))
+		},
+	))
+	defer server.Close()
+	prepareAccessTest(t, server.URL, "access-token", time.Now().Add(time.Hour))
+	if err := os.Mkdir(os.Getenv("UNUI_CREDENTIALS_PATH")+".lock", 0o700); err != nil {
+		t.Fatalf("block credential lock path: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if exitCode := Execute(
+		[]string{"ask", "Design a billing page", "--json"},
+		&stdout,
+		&stderr,
+	); exitCode != 0 {
+		t.Fatalf("unexpected exit code: %d\n%s", exitCode, stdout.String())
+	}
+}
+
+func TestNetworkErrorDoesNotExposeRegistry(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	registry := server.URL
+	server.Close()
+	prepareAccessTest(t, registry, "access-token", time.Now().Add(time.Hour))
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if exitCode := Execute(
+		[]string{"ask", "Design a billing page", "--json"},
+		&stdout,
+		&stderr,
+	); exitCode == 0 {
+		t.Fatal("expected network request to fail")
+	}
+	if strings.Contains(stdout.String(), registry) || strings.Contains(stderr.String(), registry) {
+		t.Fatalf("command output exposed registry: stdout=%s stderr=%s", stdout.String(), stderr.String())
+	}
+}
+
+func TestAccessRefreshUpdatesOnlyCurrentRegistry(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(
+		func(writer http.ResponseWriter, request *http.Request) {
+			switch request.URL.Path {
+			case "/v1/cli/auth/access-tokens":
+				writeAccessTokenResponse(writer, "renewed-access-token")
+			case "/v1/cli/ask":
+				writer.Header().Set("Content-Type", "application/json")
+				_, _ = writer.Write([]byte(`{"references":[],"rules":[]}`))
+			default:
+				http.NotFound(writer, request)
+			}
+		},
+	))
+	defer server.Close()
+	prepareAccessTest(t, server.URL, "expired-access-token", time.Now().Add(-time.Hour))
+	credentials, err := store.Load()
+	if err != nil {
+		t.Fatalf("load credentials: %v", err)
+	}
+	production := store.RegistryCredentials{
+		AccessToken:          "production-access-token",
+		AccessTokenExpiresAt: time.Now().Add(time.Hour).Format(time.RFC3339Nano),
+		PersonalToken:        "production-personal-token",
+	}
+	if err := credentials.SetRegistry(cliconfig.DefaultRegistry, production); err != nil {
+		t.Fatalf("set production credentials: %v", err)
+	}
+	if err := store.Save(credentials); err != nil {
+		t.Fatalf("save credentials: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if exitCode := Execute(
+		[]string{"ask", "Design a billing page", "--json"},
+		&stdout,
+		&stderr,
+	); exitCode != 0 {
+		t.Fatalf("unexpected exit code: %d\n%s", exitCode, stdout.String())
+	}
+	saved, err := store.Load()
+	if err != nil {
+		t.Fatalf("load refreshed credentials: %v", err)
+	}
+	current, err := saved.ForRegistry(server.URL)
+	if err != nil {
+		t.Fatalf("select current credentials: %v", err)
+	}
+	other, err := saved.ForRegistry(cliconfig.DefaultRegistry)
+	if err != nil {
+		t.Fatalf("select production credentials: %v", err)
+	}
+	if current.AccessToken != "renewed-access-token" || other != production {
+		t.Fatalf("unexpected refreshed credentials: %#v", saved)
+	}
+}
+
 func prepareAccessTest(
 	t *testing.T,
 	registry string,
@@ -257,16 +369,19 @@ func prepareAccessTest(
 		t.Fatalf("set registry: %v", err)
 	}
 	if err := store.Save(store.Credentials{
-		AccessToken:          accessToken,
-		AccessTokenExpiresAt: accessTokenExpiresAt.Format(time.RFC3339Nano),
-		DeviceID:             device.DeviceID,
-		DeviceName:           "Design Mac",
-		PersonalToken:        "personal-token",
-		PersonalTokenExpires: time.Now().Add(24 * time.Hour).Format(time.RFC3339Nano),
-		Platform:             "darwin/arm64",
-		PrivateKey:           device.PrivateKey,
-		PublicKey:            device.PublicKey,
-		Registry:             registry,
+		DeviceID:   device.DeviceID,
+		DeviceName: "Design Mac",
+		Platform:   "darwin/arm64",
+		PrivateKey: device.PrivateKey,
+		PublicKey:  device.PublicKey,
+		Registries: map[string]store.RegistryCredentials{
+			registry: {
+				AccessToken:          accessToken,
+				AccessTokenExpiresAt: accessTokenExpiresAt.Format(time.RFC3339Nano),
+				PersonalToken:        "personal-token",
+				PersonalTokenExpires: time.Now().Add(24 * time.Hour).Format(time.RFC3339Nano),
+			},
+		},
 	}); err != nil {
 		t.Fatalf("save credentials: %v", err)
 	}

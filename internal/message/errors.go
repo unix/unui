@@ -98,7 +98,7 @@ func NetworkUnavailable() ErrorText {
 	return ErrorText{
 		Title:   "Could not reach unUI",
 		Message: "The CLI could not connect to the unUI API.",
-		Hint:    "Check your connection and configured registry, then try again.",
+		Hint:    "Check your connection, then try again.",
 	}
 }
 
@@ -146,15 +146,15 @@ func ResourceNotFound() ErrorText {
 	return ErrorText{
 		Title:   "Resource not found",
 		Message: "The requested unUI resource or API route could not be found.",
-		Hint:    "Check the command parameters and configured registry, then try again.",
+		Hint:    "Check the command parameters, then try again.",
 	}
 }
 
-func InvalidRegistry(registry string) ErrorText {
+func InvalidRegistry() ErrorText {
 	return ErrorText{
 		Title:   "Invalid registry",
-		Message: fmt.Sprintf("`%s` is not a valid HTTP or HTTPS registry URL.", registry),
-		Hint:    "Use a URL such as `https://api.unui.cc` or `http://127.0.0.1:3001`.",
+		Message: "The supplied value is not a valid HTTP or HTTPS registry URL.",
+		Hint:    "Use an absolute HTTP or HTTPS URL without credentials, a query, or a fragment.",
 	}
 }
 
@@ -163,17 +163,6 @@ func ConfigUnavailable() ErrorText {
 		Title:   "CLI configuration is unavailable",
 		Message: "unUI could not read or update the CLI configuration file.",
 		Hint:    "Check the configuration file permissions, then run the command again.",
-	}
-}
-
-func RegistryAuthenticationRequired(registry string) ErrorText {
-	return ErrorText{
-		Title: "Authentication required for this registry",
-		Message: fmt.Sprintf(
-			"No saved credentials belong to `%s`.",
-			registry,
-		),
-		Hint: "Run `unui auth login` to authorize this registry.",
 	}
 }
 

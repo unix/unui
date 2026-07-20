@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/unix/unui/internal/api"
+	"github.com/unix/unui/internal/message"
 	"github.com/unix/unui/internal/store"
 )
 
@@ -18,13 +19,12 @@ func (a *app) doctorCommand() *cobra.Command {
 		Example: `  unui doctor
   unui doctor --json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			credentials, err := store.Load()
+			saved, err := store.Load()
 			if errors.Is(err, store.ErrNotLoggedIn) {
 				return a.printer().Success(
 					map[string]any{
-						"apiUrl":   a.apiURL(),
-						"loggedIn": false,
-						"registry": a.registry,
+						"accessReady": false,
+						"loggedIn":    false,
 					},
 					a.printer().Warning(
 						"No saved credentials were found for this device.",
@@ -36,11 +36,22 @@ func (a *app) doctorCommand() *cobra.Command {
 			}
 			ctx, cancel := a.context(cmd.Context())
 			defer cancel()
-			credentialRegistry := credentialsRegistry(credentials)
-			var accessErr error
-			if credentialRegistry != a.registry {
-				accessErr = registryAuthenticationError(a.registry)
-			} else {
+			registryCredentials, accessErr := saved.ForRegistry(a.registry)
+			if accessErr != nil {
+				accessErr = credentialStoreError(accessErr)
+			}
+			credentials := scopedCredentials{
+				Credentials:         saved,
+				RegistryCredentials: registryCredentials,
+			}
+			if accessErr == nil && registryCredentials.Empty() {
+				accessErr = newCommandError(
+					"NOT_LOGGED_IN",
+					message.NotLoggedIn(),
+					nil,
+				)
+			}
+			if accessErr == nil {
 				credentials, accessErr = a.credentialsWithAccess(ctx)
 			}
 			if accessErr == nil {
@@ -59,21 +70,17 @@ func (a *app) doctorCommand() *cobra.Command {
 			human := a.printer().Done("Doctor", "All checks passed")
 			var accessIssue map[string]string
 			if accessErr != nil {
-				accessIssue = errorSummary(accessErr)
+				accessIssue = a.errorSummary(accessErr)
 				human = a.printer().Warning(
 					"Doctor completed, but API access is not ready.",
 				)
 			}
 			return a.printer().Success(
 				map[string]any{
-					"accessIssue":        accessIssue,
-					"accessReady":        accessErr == nil,
-					"apiUrl":             a.apiURL(),
-					"credentialRegistry": credentialRegistry,
-					"deviceId":           credentials.DeviceID,
-					"loggedIn": credentials.PersonalToken != "" &&
-						credentialRegistry == a.registry,
-					"registry": a.registry,
+					"accessIssue": accessIssue,
+					"accessReady": accessErr == nil,
+					"deviceId":    credentials.DeviceID,
+					"loggedIn":    credentials.PersonalToken != "",
 				},
 				human,
 			)

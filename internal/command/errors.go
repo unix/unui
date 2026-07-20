@@ -50,10 +50,10 @@ func (a *app) renderError(err error) int {
 		a.printer().Failure(
 			commandErr.ExitCode,
 			commandErr.Code,
-			commandErr.Title,
-			commandErr.Message,
-			commandErr.Hint,
-			commandErr.Details,
+			redactRegistryText(commandErr.Title, a.registry),
+			redactRegistryText(commandErr.Message, a.registry),
+			redactRegistryText(commandErr.Hint, a.registry),
+			redactRegistryValue(commandErr.Details, a.registry),
 		)
 		return commandErr.ExitCode
 	}
@@ -67,6 +67,41 @@ func (a *app) renderError(err error) int {
 		map[string]any{"error": err.Error()},
 	)
 	return 1
+}
+
+func redactRegistryText(value string, registry string) string {
+	registry = strings.TrimRight(strings.TrimSpace(registry), "/")
+	if registry == "" {
+		return value
+	}
+	return strings.ReplaceAll(value, registry, "[redacted]")
+}
+
+func redactRegistryValue(value any, registry string) any {
+	switch typed := value.(type) {
+	case string:
+		return redactRegistryText(typed, registry)
+	case []any:
+		redacted := make([]any, len(typed))
+		for index, item := range typed {
+			redacted[index] = redactRegistryValue(item, registry)
+		}
+		return redacted
+	case map[string]any:
+		redacted := make(map[string]any, len(typed))
+		for key, item := range typed {
+			redacted[key] = redactRegistryValue(item, registry)
+		}
+		return redacted
+	case map[string]string:
+		redacted := make(map[string]string, len(typed))
+		for key, item := range typed {
+			redacted[key] = redactRegistryText(item, registry)
+		}
+		return redacted
+	default:
+		return value
+	}
 }
 
 func normalizeCommandError(err error) error {
@@ -291,7 +326,7 @@ func apiCommandError(err error) error {
 		return newCommandError(
 			"NETWORK_ERROR",
 			message.NetworkUnavailable(),
-			map[string]any{"error": err.Error()},
+			nil,
 		)
 	}
 }
@@ -328,15 +363,12 @@ func credentialStoreError(err error) error {
 	)
 }
 
-func registryCommandError(value string, err error) error {
+func registryCommandError(err error) error {
 	if errors.Is(err, cliconfig.ErrInvalidRegistry) {
 		return newCommandError(
 			"INVALID_REGISTRY",
-			message.InvalidRegistry(value),
-			map[string]any{
-				"error":    err.Error(),
-				"registry": value,
-			},
+			message.InvalidRegistry(),
+			nil,
 		)
 	}
 	return configCommandError(err)
@@ -347,14 +379,6 @@ func configCommandError(err error) error {
 		"CONFIG_UNAVAILABLE",
 		message.ConfigUnavailable(),
 		map[string]any{"error": err.Error()},
-	)
-}
-
-func registryAuthenticationError(registry string) error {
-	return newCommandError(
-		"REGISTRY_AUTH_REQUIRED",
-		message.RegistryAuthenticationRequired(registry),
-		map[string]any{"registry": registry},
 	)
 }
 
@@ -377,23 +401,30 @@ func internalError(code string, err error) error {
 	)
 }
 
-func errorSummary(err error) map[string]string {
+func (a *app) errorSummary(err error) map[string]string {
 	var commandErr *commandError
+	var summary map[string]string
 	if errors.As(err, &commandErr) {
-		return map[string]string{
+		summary = map[string]string{
 			"code":    commandErr.Code,
 			"hint":    commandErr.Hint,
 			"message": commandErr.Message,
 			"title":   commandErr.Title,
 		}
+	} else {
+		text := message.Internal("COMMAND_FAILED")
+		summary = map[string]string{
+			"code":    "COMMAND_FAILED",
+			"hint":    text.Hint,
+			"message": text.Message,
+			"title":   text.Title,
+		}
 	}
-	text := message.Internal("COMMAND_FAILED")
-	return map[string]string{
-		"code":    "COMMAND_FAILED",
-		"hint":    text.Hint,
-		"message": text.Message,
-		"title":   text.Title,
+	redacted, ok := redactRegistryValue(summary, a.registry).(map[string]string)
+	if !ok {
+		return summary
 	}
+	return redacted
 }
 
 func quotedValues(value string) []string {

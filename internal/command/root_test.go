@@ -298,6 +298,32 @@ func TestCommandTimeoutIsFixedAtThirtySeconds(t *testing.T) {
 	}
 }
 
+func TestRenderErrorRedactsRegistryFromAllFields(t *testing.T) {
+	registry := "http://127.0.0.1:3001"
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	application := &app{
+		json:     true,
+		registry: registry,
+		stderr:   &stderr,
+		stdout:   &stdout,
+	}
+	application.renderError(&commandError{
+		Code:     "TEST_ERROR",
+		Details:  map[string]any{"endpoint": registry + "/v1/cli"},
+		ExitCode: 1,
+		Hint:     "Retry " + registry,
+		Message:  "Request to " + registry + " failed",
+		Title:    "Could not reach " + registry,
+	})
+	if strings.Contains(stdout.String(), registry) || strings.Contains(stderr.String(), registry) {
+		t.Fatalf("error output exposed registry: stdout=%s stderr=%s", stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "[redacted]") {
+		t.Fatalf("error output did not contain redaction marker: %s", stdout.String())
+	}
+}
+
 func TestAuthorizationTimeoutIsFixedAtFiveMinutes(t *testing.T) {
 	application := &app{}
 	ctx, cancel := application.authorizationContext(context.Background())
@@ -461,28 +487,22 @@ func TestJSONFlagIsHonoredAfterInvalidOption(t *testing.T) {
 	}
 }
 
-func TestLoginHelpDocumentsRegistryOption(t *testing.T) {
+func TestLoginDoesNotAcceptRegistryOption(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := Execute(
-		[]string{"auth", "login", "--help", "--no-color"},
+		[]string{"auth", "login", "--registry", "http://127.0.0.1:3001", "--json"},
 		&stdout,
 		&stderr,
 	)
-	if exitCode != 0 {
-		t.Fatalf("unexpected exit code: %d", exitCode)
+	if exitCode == 0 {
+		t.Fatal("expected registry option to be rejected")
 	}
 	if stderr.Len() != 0 {
-		t.Fatalf("stderr must be empty: %q", stderr.String())
+		t.Fatalf("stderr must be empty in JSON mode: %q", stderr.String())
 	}
-	for _, expected := range []string{
-		"--registry <string>",
-		"https://api.unui.cc",
-		"http://127.0.0.1:3001",
-	} {
-		if !strings.Contains(stdout.String(), expected) {
-			t.Fatalf("login help is missing %q:\n%s", expected, stdout.String())
-		}
+	if strings.Contains(stdout.String(), "http://127.0.0.1:3001") {
+		t.Fatalf("error output exposed registry: %s", stdout.String())
 	}
 }
 
@@ -509,6 +529,9 @@ func TestConfigSetAndResetRegistry(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr must be empty in JSON mode: %q", stderr.String())
 	}
+	if strings.Contains(stdout.String(), "http://127.0.0.1:3001") {
+		t.Fatalf("set output exposed registry: %s", stdout.String())
+	}
 
 	configStore := cliconfig.Store{FilePath: path}
 	values, err := configStore.Load()
@@ -529,6 +552,9 @@ func TestConfigSetAndResetRegistry(t *testing.T) {
 	if exitCode != 0 {
 		t.Fatalf("unexpected reset exit code: %d\n%s", exitCode, stderr.String())
 	}
+	if strings.Contains(stdout.String(), cliconfig.DefaultRegistry) {
+		t.Fatalf("reset output exposed registry: %s", stdout.String())
+	}
 	values, err = configStore.Load()
 	if err != nil {
 		t.Fatalf("load reset config: %v", err)
@@ -538,7 +564,7 @@ func TestConfigSetAndResetRegistry(t *testing.T) {
 	}
 }
 
-func TestConfigShowIncludesEffectiveValueSourceAndPath(t *testing.T) {
+func TestConfigShowIncludesSourceAndPathWithoutRegistry(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	t.Setenv("UNUI_CONFIG_PATH", path)
 	configStore := cliconfig.Store{FilePath: path}
@@ -563,7 +589,6 @@ func TestConfigShowIncludesEffectiveValueSourceAndPath(t *testing.T) {
 	var envelope struct {
 		Data struct {
 			ConfigFile string `json:"configFile"`
-			Registry   string `json:"registry"`
 			Source     string `json:"source"`
 		} `json:"data"`
 	}
@@ -573,11 +598,11 @@ func TestConfigShowIncludesEffectiveValueSourceAndPath(t *testing.T) {
 	if envelope.Data.ConfigFile != path {
 		t.Fatalf("unexpected config path: %q", envelope.Data.ConfigFile)
 	}
-	if envelope.Data.Registry != "http://127.0.0.1:3001" {
-		t.Fatalf("unexpected registry: %q", envelope.Data.Registry)
-	}
 	if envelope.Data.Source != "configFile" {
 		t.Fatalf("unexpected registry source: %q", envelope.Data.Source)
+	}
+	if strings.Contains(stdout.String(), "http://127.0.0.1:3001") {
+		t.Fatalf("config output exposed registry: %s", stdout.String())
 	}
 }
 
@@ -611,7 +636,7 @@ func TestConfigShowShortensConfigPathUnderUserHomeInHumanMode(t *testing.T) {
 	}
 }
 
-func TestConfigGetRegistryWritesOnlyValueInHumanMode(t *testing.T) {
+func TestConfigGetRegistryIsRemoved(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	t.Setenv("UNUI_CONFIG_PATH", path)
 	if _, err := (cliconfig.Store{FilePath: path}).SetRegistry(
@@ -623,18 +648,18 @@ func TestConfigGetRegistryWritesOnlyValueInHumanMode(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := Execute(
-		[]string{"config", "get", "--registry", "--no-color"},
+		[]string{"config", "get", "--registry", "--json"},
 		&stdout,
 		&stderr,
 	)
-	if exitCode != 0 {
-		t.Fatalf("unexpected exit code: %d\n%s", exitCode, stderr.String())
+	if exitCode == 0 {
+		t.Fatal("expected config get to be removed")
 	}
 	if stderr.Len() != 0 {
-		t.Fatalf("stderr must be empty: %q", stderr.String())
+		t.Fatalf("stderr must be empty in JSON mode: %q", stderr.String())
 	}
-	if stdout.String() != "http://127.0.0.1:3001\n" {
-		t.Fatalf("unexpected registry output: %q", stdout.String())
+	if strings.Contains(stdout.String(), "http://127.0.0.1:3001") {
+		t.Fatalf("error output exposed registry: %s", stdout.String())
 	}
 }
 
@@ -660,7 +685,7 @@ func TestConfigPathDoesNotRequireConfigFile(t *testing.T) {
 	}
 }
 
-func TestLoginRegistryOptionIsSavedAndUsedForRequests(t *testing.T) {
+func TestLoginUsesConfiguredRegistryWithoutExposingIt(t *testing.T) {
 	directory := t.TempDir()
 	configPath := filepath.Join(directory, "config.json")
 	credentialsPath := filepath.Join(directory, "credentials.json")
@@ -675,17 +700,14 @@ func TestLoginRegistryOptionIsSavedAndUsedForRequests(t *testing.T) {
 		},
 	))
 	defer server.Close()
+	if _, err := (cliconfig.Store{FilePath: configPath}).SetRegistry(server.URL); err != nil {
+		t.Fatalf("set registry: %v", err)
+	}
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	exitCode := Execute(
-		[]string{
-			"auth",
-			"login",
-			"--registry",
-			server.URL,
-			"--json",
-		},
+		[]string{"auth", "login", "--json"},
 		&stdout,
 		&stderr,
 	)
@@ -694,6 +716,9 @@ func TestLoginRegistryOptionIsSavedAndUsedForRequests(t *testing.T) {
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr must be empty in JSON mode: %q", stderr.String())
+	}
+	if strings.Contains(stdout.String(), server.URL) {
+		t.Fatalf("login output exposed registry: %s", stdout.String())
 	}
 	if requestedPath != "/v1/cli/auth/requests" {
 		t.Fatalf("unexpected request path: %q", requestedPath)
@@ -706,30 +731,29 @@ func TestLoginRegistryOptionIsSavedAndUsedForRequests(t *testing.T) {
 	if values.EffectiveRegistry() != server.URL {
 		t.Fatalf("unexpected saved registry: %q", values.EffectiveRegistry())
 	}
-	credentials, err := store.Load()
+	credentials, err := (store.Store{FilePath: credentialsPath}).Load()
 	if err != nil {
 		t.Fatalf("load credentials: %v", err)
 	}
-	if credentials.Registry != server.URL {
-		t.Fatalf("unexpected credential registry: %q", credentials.Registry)
+	if credentials.DeviceID == "" || len(credentials.Registries) != 0 {
+		t.Fatalf("unexpected credentials after failed login: %#v", credentials)
 	}
 }
 
-func TestBindingCredentialsToAnotherRegistryClearsTokens(t *testing.T) {
+func TestCredentialsPreserveIndependentRegistryTokens(t *testing.T) {
 	credentials := store.Credentials{
-		AccessToken:          "access-token",
-		AccessTokenExpiresAt: "2099-01-01T00:00:00Z",
-		PersonalToken:        "personal-token",
-		PersonalTokenExpires: "2099-01-01T00:00:00Z",
-		Registry:             cliconfig.DefaultRegistry,
+		Registries: map[string]store.RegistryCredentials{
+			cliconfig.DefaultRegistry: {PersonalToken: "production-token"},
+		},
 	}
-
-	bindCredentialsToRegistry(&credentials, "http://127.0.0.1:3001")
-
-	if credentials.AccessToken != "" || credentials.PersonalToken != "" {
-		t.Fatalf("tokens must be cleared: %#v", credentials)
+	if err := credentials.SetRegistry(
+		"http://127.0.0.1:3001",
+		store.RegistryCredentials{PersonalToken: "development-token"},
+	); err != nil {
+		t.Fatalf("set development credentials: %v", err)
 	}
-	if credentials.Registry != "http://127.0.0.1:3001" {
-		t.Fatalf("unexpected registry: %q", credentials.Registry)
+	if credentials.Registries[cliconfig.DefaultRegistry].PersonalToken != "production-token" ||
+		credentials.Registries["http://127.0.0.1:3001"].PersonalToken != "development-token" {
+		t.Fatalf("unexpected credentials: %#v", credentials)
 	}
 }
