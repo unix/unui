@@ -1,6 +1,6 @@
 ---
 name: unui
-description: Use the unUI CLI to retrieve evidence-backed design guidance and apply it to local interface work. Use when the user asks to design, build, restyle, or improve a web page, application screen, or UI component with unUI evidence. Write a self-contained design brief instead of sharing project contents or code.
+description: Use the unUI CLI to retrieve evidence-backed design guidance and apply it to local interface work. Use when the user asks to design, build, restyle, or improve a web page, application screen, or UI component with unUI evidence. Send a concise retrieval query instead of project contents, code, or the complete task brief.
 ---
 
 # unUI design evidence
@@ -10,20 +10,19 @@ Use unUI design evidence for the user's current interface task.
 ## Workflow
 
 1. Read the workspace instructions and understand the user's interface goal. Do not inspect or collect project contents for the purpose of constructing the unUI request.
-2. Write a self-contained design brief that explicitly describes what the target page or component should contain:
+2. Derive one compact retrieval query from the interface goal:
 
-   - Its type, purpose, and intended audience.
-   - The desired page content and approximate structure.
-   - The elements it should include and their rough functions or interactions.
-   - The desired visual tone, density, hierarchy, responsive behavior, and other relevant design constraints.
+   - Use 6–20 high-information terms, normally 40–160 characters and never more than 256 characters.
+   - Include the page or component type, its key composition or layout, the desired visual tone, and only the most important interaction or responsive constraint.
+   - Prefer concrete design vocabulary over explanatory prose, business rationale, exhaustive requirements, or repeated synonyms.
+   - Express desired characteristics positively. Keep negative constraints and unwanted pattern names in local context because retrieval treats every supplied term as a positive match signal.
+   - Keep the user's complete task in local context. Do not send it to unUI.
 
-   State what the page needs, not what the current project contains. Infer reasonable design requirements when the user's request leaves low-risk details open.
-
-3. Prefer a thorough, coherent prompt. Longer, relevant prompts can match more precise design evidence. Do not pad the request with workspace material, implementation details, or invented business data.
+3. Treat the query as evidence retrieval input, not as the implementation specification. After receiving evidence, combine it with the complete local task when implementing the interface.
 4. Make one focused request:
 
    ```sh
-   unui ask "<the self-contained description of the target UI, its elements, rough functions, structure, and design constraints>" --json
+   unui ask "<compact design evidence query>" --json
    ```
 
    Each request consumes account usage. Do not make exploratory or duplicate requests.
@@ -41,7 +40,7 @@ Use unUI design evidence for the user's current interface task.
 
 ## Boundaries
 
-- Treat the text passed to `unui ask` as a newly authored design prompt, not an extract, inventory, or summary of the workspace.
+- Treat the text passed to `unui ask` as a newly authored compact retrieval query, not an extract, inventory, or summary of the workspace.
 - Never send project contents to unUI. This includes source code, file contents, directory trees, routes, configuration, manifests, diffs, logs, schemas, API payloads, copied product data, or user data.
 - Never send tokens, credentials, secrets, or other authentication material to unUI, whether directly or inside a larger prompt.
 - Do not ask unUI to inspect or analyze a repository, file, implementation, or uploaded project material.

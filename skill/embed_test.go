@@ -21,14 +21,18 @@ func TestBundleContainsValidSkill(t *testing.T) {
 		"description:",
 		"unui ask",
 		"Do not inspect or collect project contents",
-		"desired page content and approximate structure",
-		"elements it should include and their rough functions",
-		"Longer, relevant prompts",
+		"6–20 high-information terms",
+		"never more than 256 characters",
+		"Express desired characteristics positively",
+		"Keep the user's complete task in local context",
 		"Never send project contents to unUI",
 	} {
 		if !strings.Contains(content, expected) {
 			t.Fatalf("SKILL.md is missing %q:\n%s", expected, content)
 		}
+	}
+	if strings.Contains(content, "Longer, relevant prompts") {
+		t.Fatalf("SKILL.md still encourages long retrieval prompts:\n%s", content)
 	}
 }
 
