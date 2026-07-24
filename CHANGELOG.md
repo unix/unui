@@ -6,6 +6,13 @@ between version tags.
 
 ## Unreleased
 
+## v0.3.1 - 2026-07-25
+
+- Map design evidence timeouts and oversized queries to stable, actionable CLI
+  errors.
+- Keep unUI design evidence queries concise, focused, and within API limits
+  while retaining the complete task locally.
+
 ## v0.3.0 - 2026-07-20
 
 - Avoid changing persisted configuration, credential, and lock file modes
