@@ -293,6 +293,76 @@ func TestNetworkErrorDoesNotExposeRegistry(t *testing.T) {
 	}
 }
 
+func TestAskMapsEvidenceAPIErrors(t *testing.T) {
+	tests := []struct {
+		name         string
+		apiCode      string
+		status       int
+		expectedCode string
+	}{
+		{
+			name:         "server timeout",
+			apiCode:      "ASK_TIMEOUT",
+			status:       http.StatusGatewayTimeout,
+			expectedCode: "REQUEST_TIMEOUT",
+		},
+		{
+			name:         "query too long",
+			apiCode:      "QUERY_TOO_LONG",
+			status:       http.StatusBadRequest,
+			expectedCode: "QUERY_TOO_LONG",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(
+				func(writer http.ResponseWriter, request *http.Request) {
+					if request.URL.Path != "/v1/cli/ask" {
+						http.NotFound(writer, request)
+						return
+					}
+					writer.Header().Set("Content-Type", "application/json")
+					writer.WriteHeader(test.status)
+					_, _ = fmt.Fprintf(
+						writer,
+						`{"code":%q,"message":"request failed"}`,
+						test.apiCode,
+					)
+				},
+			))
+			defer server.Close()
+			prepareAccessTest(
+				t,
+				server.URL,
+				"access-token",
+				time.Now().Add(time.Hour),
+			)
+
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			exitCode := Execute(
+				[]string{"ask", "Design a billing page", "--json"},
+				&stdout,
+				&stderr,
+			)
+			if exitCode == 0 {
+				t.Fatal("expected the API error to fail")
+			}
+			if stderr.Len() != 0 {
+				t.Fatalf("stderr must be empty in JSON mode: %q", stderr.String())
+			}
+			var envelope output.Envelope
+			if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+				t.Fatalf("stdout is not one JSON document: %v", err)
+			}
+			if envelope.Error == nil || envelope.Error.Code != test.expectedCode {
+				t.Fatalf("unexpected envelope: %#v", envelope)
+			}
+		})
+	}
+}
+
 func TestAccessRefreshUpdatesOnlyCurrentRegistry(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(
 		func(writer http.ResponseWriter, request *http.Request) {

@@ -110,6 +110,22 @@ func RequestTimedOut() ErrorText {
 	}
 }
 
+func AskTimedOut() ErrorText {
+	return ErrorText{
+		Title:   "Request timed out",
+		Message: "The unUI API could not complete the design evidence search within 25 seconds.",
+		Hint:    "Use a shorter, more focused design query and try again.",
+	}
+}
+
+func QueryTooLong() ErrorText {
+	return ErrorText{
+		Title:   "Design query is too long",
+		Message: "The design evidence query exceeds 256 characters or 24 unique terms.",
+		Hint:    "Keep only the component type, key layout, visual tone, and most important constraint.",
+	}
+}
+
 func RequestCanceled() ErrorText {
 	return ErrorText{
 		Title:   "Request canceled",

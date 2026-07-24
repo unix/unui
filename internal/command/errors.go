@@ -280,6 +280,20 @@ func apiCommandError(err error) error {
 				apiErr.Body,
 			)
 		}
+		if apiErr.Code == "ASK_TIMEOUT" {
+			return newCommandError(
+				"REQUEST_TIMEOUT",
+				message.AskTimedOut(),
+				apiErr.Body,
+			)
+		}
+		if apiErr.Code == "QUERY_TOO_LONG" {
+			return newCommandError(
+				"QUERY_TOO_LONG",
+				message.QueryTooLong(),
+				apiErr.Body,
+			)
+		}
 		code := fmt.Sprintf("API_%d", apiErr.Status)
 		text := message.RequestRejected(apiErr.Message)
 		switch apiErr.Status {
